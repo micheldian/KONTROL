@@ -5,7 +5,7 @@ import { renderRecapPdf } from '@/lib/pdf/recap-pdf';
 
 export const dynamic = 'force-dynamic';
 
-// PDF bilingue du récap mensuel — accessible à l'ADMIN/RH de l'organisation
+// PDF bilingue du récap mensuel — accessible à l'ADMIN/MANAGER de l'organisation
 // et à l'ouvrier concerné (depuis « Mon argent »).
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const user = await getSessionUser();
@@ -17,7 +17,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   });
   if (!cloture) return new NextResponse('Introuvable', { status: 404 });
 
-  const estAdmin = user.role === 'ADMIN' || user.role === 'RH';
+  const estAdmin = user.role === 'ADMIN' || user.role === 'MANAGER';
   if (!estAdmin && cloture.userId !== user.userId) {
     return new NextResponse('Non autorisé', { status: 403 });
   }

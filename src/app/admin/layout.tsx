@@ -5,6 +5,7 @@ import LogoutButton from '@/components/LogoutButton';
 const NAV: Array<{ href: string; label: string; adminOnly?: boolean }> = [
   { href: '/admin', label: 'Tableau de bord' },
   { href: '/admin/affectations', label: 'Affectations' },
+  { href: '/admin/carte', label: 'Carte' },
   { href: '/admin/heures', label: 'Heures' },
   { href: '/admin/ouvriers', label: 'Ouvriers' },
   { href: '/admin/vivier', label: 'Vivier' },
@@ -26,7 +27,7 @@ export default async function AdminLayout({
 }) {
   const user = await getSessionUser();
   // /admin/login est rendu sans chrome
-  if (!user || (user.role !== 'ADMIN' && user.role !== 'RH')) {
+  if (!user || (user.role !== 'ADMIN' && user.role !== 'MANAGER')) {
     return <>{children}</>;
   }
 

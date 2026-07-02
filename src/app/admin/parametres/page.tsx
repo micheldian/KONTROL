@@ -21,15 +21,24 @@ const LANGUES = ['FR', 'RO', 'ES'] as const;
 
 export default async function ParametresPage() {
   const user = await requireAdminStrict();
-  const [org, comptes, tags] = await Promise.all([
+  const [org, comptes, tags, clients] = await Promise.all([
     prisma.organisation.findUnique({ where: { id: user.organisationId } }),
     prisma.user.findMany({
-      where: { organisationId: user.organisationId, role: { in: ['ADMIN', 'RH'] } },
+      where: {
+        organisationId: user.organisationId,
+        role: { in: ['ADMIN', 'MANAGER', 'CLIENT'] }
+      },
+      include: { client: { select: { nom: true } } },
       orderBy: [{ role: 'asc' }, { nom: 'asc' }]
     }),
     prisma.competenceTag.findMany({
       where: { organisationId: user.organisationId },
       orderBy: { libelle: 'asc' }
+    }),
+    prisma.client.findMany({
+      where: { organisationId: user.organisationId },
+      select: { id: true, nom: true },
+      orderBy: { nom: 'asc' }
     })
   ]);
   if (!org) return null;
@@ -74,6 +83,15 @@ export default async function ParametresPage() {
             Compter aussi le jour de départ du logement (par défaut : exclu)
           </label>
         </div>
+        <label className="flex items-center gap-2 text-[13.5px]">
+          <input
+            type="checkbox"
+            name="afficherNomsOuvriersAuClient"
+            defaultChecked={params.afficherNomsOuvriersAuClient === true}
+            className="h-4 w-4 accent-brand"
+          />
+          Portail client : afficher les noms des ouvriers (par défaut : « N ouvriers », chef visible)
+        </label>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label className="label">Token bot Telegram (vide = simulation)</label>
@@ -100,7 +118,7 @@ export default async function ParametresPage() {
       <form action={majTemplates} className="card mb-6 space-y-4 p-5">
         <h2 className="text-[16px] font-bold">Modèles de messages (3 langues)</h2>
         <p className="text-[12.5px] text-muted">
-          Variables : {'{prenom} {client} {mission} {date} {heure} {adresse} {instructions} {mois} {net} {organisation}'}
+          Variables : {'{prenom} {client} {mission} {travaux} {date} {heure} {parcelles} {adresse} {instructions} {mois} {net} {organisation}'}
           . Vide = modèle par défaut.
         </p>
         {CONTEXTES.map((c) => (
@@ -147,9 +165,14 @@ export default async function ParametresPage() {
         </form>
       </div>
 
-      {/* Comptes ADMIN / RH */}
+      {/* Comptes ADMIN / MANAGER / CLIENT */}
       <div className="card p-5">
-        <h2 className="mb-3 text-[16px] font-bold">Comptes ADMIN & RH</h2>
+        <h2 className="mb-3 text-[16px] font-bold">Comptes ADMIN, MANAGER & CLIENT</h2>
+        <p className="mb-3 text-[12.5px] text-muted">
+          MANAGER : validation des heures, affectations, acomptes, logements, vivier, carte &
+          import, clôtures — pas de facturation ni de paramètres. CLIENT : portail /client en
+          lecture seule, rattaché à un client.
+        </p>
         <div className="mb-4">
           {comptes.map((c) => (
             <div
@@ -160,7 +183,10 @@ export default async function ParametresPage() {
                 {c.prenom} {c.nom}
               </b>
               <span className="badge badge-muted">{c.role}</span>
-              <span className="flex-1 text-[13px] text-muted">{c.email}</span>
+              <span className="flex-1 text-[13px] text-muted">
+                {c.email}
+                {c.client ? ` · ${c.client.nom}` : ''}
+              </span>
               {!c.actif ? (
                 <span className="badge badge-warn">désactivé</span>
               ) : c.id !== user.userId ? (
@@ -178,8 +204,17 @@ export default async function ParametresPage() {
           <input name="prenom" required placeholder="Prénom" className="input py-2" />
           <input name="nom" required placeholder="Nom" className="input py-2" />
           <select name="role" className="input py-2">
-            <option value="RH">RH</option>
+            <option value="MANAGER">MANAGER</option>
             <option value="ADMIN">ADMIN</option>
+            <option value="CLIENT">CLIENT (portail)</option>
+          </select>
+          <select name="clientId" className="input py-2">
+            <option value="">— Client rattaché (si rôle CLIENT) —</option>
+            {clients.map((cl) => (
+              <option key={cl.id} value={cl.id}>
+                {cl.nom}
+              </option>
+            ))}
           </select>
           <input name="email" type="email" required placeholder="email@pickajob.fr" className="input py-2" />
           <input name="telephone" required placeholder="+33 6…" className="input py-2" />

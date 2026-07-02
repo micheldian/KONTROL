@@ -7,9 +7,9 @@ export type LangueCode = 'FR' | 'RO' | 'ES';
 
 const DEFAUTS: Record<TemplateContexte, Record<LangueCode, string>> = {
   AFFECTATION: {
-    FR: 'Bonjour {prenom} 👋\nVotre mission : {client} — {mission}\n📅 {date} à {heure}\n📍 {adresse}\n{instructions}',
-    RO: 'Bună ziua {prenom} 👋\nMisiunea dvs.: {client} — {mission}\n📅 {date} la {heure}\n📍 {adresse}\n{instructions}',
-    ES: 'Hola {prenom} 👋\nSu misión: {client} — {mission}\n📅 {date} a las {heure}\n📍 {adresse}\n{instructions}'
+    FR: 'Bonjour {prenom} 👋\n🌿 MISSION — {date}\nClient : {client} — {mission}\nTravaux : {travaux}\n🕖 {heure}\n{parcelles}\n{instructions}',
+    RO: 'Bună ziua {prenom} 👋\n🌿 MISIUNE — {date}\nClient: {client} — {mission}\nLucrări: {travaux}\n🕖 {heure}\n{parcelles}\n{instructions}',
+    ES: 'Hola {prenom} 👋\n🌿 MISIÓN — {date}\nCliente: {client} — {mission}\nTrabajos: {travaux}\n🕖 {heure}\n{parcelles}\n{instructions}'
   },
   RECAP: {
     FR: 'Bonjour {prenom}, votre récapitulatif {mois} est prêt : net à recevoir {net}. Ouvrez Krontrol pour le détail.',

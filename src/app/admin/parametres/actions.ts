@@ -20,6 +20,7 @@ export async function majParametres(formData: FormData) {
   const parametres = {
     ...((org?.parametres as object) ?? {}),
     regleDepartLogementInclus: formData.get('regleDepartLogementInclus') === 'on',
+    afficherNomsOuvriersAuClient: formData.get('afficherNomsOuvriersAuClient') === 'on',
     telegramBotToken: ((formData.get('telegramBotToken') as string) || '').trim(),
     pennylaneApiKey: ((formData.get('pennylaneApiKey') as string) || '').trim()
   };
@@ -81,15 +82,25 @@ const compteSchema = z.object({
   nom: z.string().trim().min(1),
   email: z.string().email(),
   telephone: z.string().min(6),
-  role: z.enum(['ADMIN', 'RH']),
+  role: z.enum(['ADMIN', 'MANAGER', 'CLIENT']),
+  clientId: z.string().optional(),
   motDePasse: z.string().min(8, 'Mot de passe : 8 caractères minimum')
 });
 
-/** Crée un compte ADMIN ou RH. */
+/** Crée un compte ADMIN, MANAGER ou CLIENT (portail client lecture seule). */
 export async function creerCompte(formData: FormData) {
   const user = await requireAdminStrict();
   const parsed = compteSchema.parse(Object.fromEntries(formData.entries()));
   const telephone = normalisePhone(parsed.telephone);
+
+  let clientId: string | null = null;
+  if (parsed.role === 'CLIENT') {
+    const client = await prisma.client.findFirst({
+      where: { id: parsed.clientId ?? '', organisationId: user.organisationId }
+    });
+    if (!client) throw new Error('Un compte CLIENT doit être rattaché à un client');
+    clientId = client.id;
+  }
 
   const conflit = await prisma.user.findFirst({
     where: { OR: [{ email: parsed.email.toLowerCase() }, { telephone }] }
@@ -105,6 +116,7 @@ export async function creerCompte(formData: FormData) {
       nom: parsed.nom,
       email: parsed.email.toLowerCase(),
       telephone,
+      clientId,
       motDePasseHash: await bcrypt.hash(parsed.motDePasse, 10),
       langue: 'FR'
     }
@@ -120,14 +132,18 @@ export async function creerCompte(formData: FormData) {
   revalidatePath('/admin/parametres');
 }
 
-/** Désactive un compte ADMIN/RH (pas le sien). */
+/** Désactive un compte ADMIN/MANAGER/CLIENT (pas le sien). */
 export async function desactiverCompte(formData: FormData) {
   const user = await requireAdminStrict();
   const id = formData.get('id') as string;
   if (id === user.userId) throw new Error('Impossible de désactiver son propre compte');
 
   const compte = await prisma.user.findFirst({
-    where: { id, organisationId: user.organisationId, role: { in: ['ADMIN', 'RH'] } }
+    where: {
+      id,
+      organisationId: user.organisationId,
+      role: { in: ['ADMIN', 'MANAGER', 'CLIENT'] }
+    }
   });
   if (!compte) throw new Error('Compte introuvable');
 

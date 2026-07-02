@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 export default async function AffectationsPage({
   searchParams
 }: {
-  searchParams: { date?: string; info?: string };
+  searchParams: { date?: string; info?: string; parcelles?: string };
 }) {
   const user = await requireAdmin();
   const today = todayParis();
@@ -22,19 +22,22 @@ export default async function AffectationsPage({
     ? searchParams.date!
     : addDays(today, 1); // par défaut : planification J+1
 
-  const [affectations, missions, ouvriers] = await Promise.all([
+  // Pré-sélection de parcelles depuis la carte (/admin/carte → « Créer une affectation »)
+  const preselection = new Set((searchParams.parcelles ?? '').split(',').filter(Boolean));
+
+  const [affectations, missions, ouvriers, parcelles] = await Promise.all([
     prisma.affectation.findMany({
       where: { organisationId: user.organisationId, date: dateFromYMD(date) },
       include: {
         mission: { include: { client: true } },
-        parcelle: true,
+        parcelles: { include: { parcelle: true } },
         ouvriers: { include: { user: true } }
       },
       orderBy: { heureDebut: 'asc' }
     }),
     prisma.mission.findMany({
       where: { organisationId: user.organisationId, statut: 'ACTIVE' },
-      include: { client: true, parcelles: true },
+      include: { client: true },
       orderBy: { libelle: 'asc' }
     }),
     prisma.user.findMany({
@@ -44,6 +47,11 @@ export default async function AffectationsPage({
         statutProfil: 'ACTIF'
       },
       orderBy: [{ estChefEquipe: 'desc' }, { nom: 'asc' }]
+    }),
+    prisma.parcelle.findMany({
+      where: { organisationId: user.organisationId },
+      include: { client: { select: { id: true, nom: true } } },
+      orderBy: [{ client: { nom: 'asc' } }, { commune: 'asc' }, { numero: 'asc' }]
     })
   ]);
 
@@ -118,7 +126,16 @@ export default async function AffectationsPage({
                   {a.mission.client.nom} — {a.mission.libelle}
                 </b>
                 <span className="block text-[12.5px] text-muted">
-                  📍 {a.parcelle?.adresse ?? a.mission.client.adresse ?? 'adresse non définie'}
+                  📍{' '}
+                  {a.parcelles.length > 0
+                    ? a.parcelles
+                        .map((ap) =>
+                          ap.parcelle.section && ap.parcelle.numero
+                            ? `${ap.parcelle.commune ?? ''} ${ap.parcelle.section} ${ap.parcelle.numero}`.trim()
+                            : ap.parcelle.adresse ?? 'parcelle'
+                        )
+                        .join(' · ')
+                    : a.mission.client.adresse ?? 'adresse non définie'}
                   {a.pauseMinutesPrevue ? ` · pause ${a.pauseMinutesPrevue} min` : ''}
                 </span>
                 {a.instructions && (
@@ -181,19 +198,6 @@ export default async function AffectationsPage({
             </select>
           </div>
           <div>
-            <label className="label">Parcelle (de la mission choisie)</label>
-            <select name="parcelleId" className="input" defaultValue="">
-              <option value="">— Aucune —</option>
-              {missions.flatMap((m) =>
-                m.parcelles.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    [{m.libelle}] {p.adresse}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
-          <div>
             <label className="label">Chef d’équipe du jour</label>
             <select name="chefEquipeId" className="input" defaultValue="">
               <option value="">— Aucun —</option>
@@ -205,6 +209,38 @@ export default async function AffectationsPage({
                   </option>
                 ))}
             </select>
+          </div>
+        </div>
+        <div>
+          <label className="label">
+            Parcelle(s) — multi-sélection, celles du client de la mission choisie
+          </label>
+          <div className="grid max-h-[180px] grid-cols-1 gap-1 overflow-y-auto rounded-xl border-[1.5px] border-line bg-paper p-3 md:grid-cols-2">
+            {parcelles.map((p) => (
+              <label key={p.id} className="flex cursor-pointer items-center gap-2 text-[13px]">
+                <input
+                  type="checkbox"
+                  name="parcelleIds"
+                  value={p.id}
+                  defaultChecked={preselection.has(p.id)}
+                  className="h-4 w-4 accent-brand"
+                />
+                <span className="text-muted">{p.client.nom} —</span>{' '}
+                {p.section && p.numero
+                  ? `${p.commune ?? p.codeInsee} ${p.section} ${p.numero}`
+                  : p.adresse}
+                {p.surfaceM2 ? (
+                  <span className="text-[11.5px] text-muted">
+                    {(p.surfaceM2 / 10000).toFixed(2).replace('.', ',')} ha
+                  </span>
+                ) : null}
+              </label>
+            ))}
+            {parcelles.length === 0 && (
+              <span className="text-[12.5px] text-muted">
+                Aucune parcelle enregistrée — fiche client, carte ou import.
+              </span>
+            )}
           </div>
         </div>
         <div className="grid grid-cols-3 gap-4">

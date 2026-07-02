@@ -107,35 +107,6 @@ export async function deleteMission(formData: FormData) {
   redirect('/admin/missions');
 }
 
-export async function addParcelle(formData: FormData) {
-  const user = await requireAdmin();
-  const missionId = formData.get('missionId') as string;
-  const adresse = ((formData.get('adresse') as string) || '').trim();
-  const instructions = ((formData.get('instructions') as string) || '').trim();
-  if (!adresse) throw new Error('Adresse obligatoire');
-
-  const mission = await prisma.mission.findFirst({
-    where: { id: missionId, organisationId: user.organisationId }
-  });
-  if (!mission) throw new Error('Mission introuvable');
-
-  await prisma.parcelle.create({
-    data: { missionId, adresse, instructions: instructions || null }
-  });
-  revalidatePath(`/admin/missions/${missionId}`);
-}
-
-export async function deleteParcelle(formData: FormData) {
-  const user = await requireAdmin();
-  const id = formData.get('id') as string;
-  const parcelle = await prisma.parcelle.findFirst({
-    where: { id, mission: { organisationId: user.organisationId } },
-    include: { _count: { select: { affectations: true } } }
-  });
-  if (!parcelle) throw new Error('Parcelle introuvable');
-  if (parcelle._count.affectations > 0) {
-    throw new Error('Impossible : des affectations utilisent cette parcelle.');
-  }
-  await prisma.parcelle.delete({ where: { id } });
-  revalidatePath(`/admin/missions/${parcelle.missionId}`);
-}
+// La gestion des parcelles a déménagé sur la fiche CLIENT (règle 15 V3) :
+// src/app/admin/parcelles/actions.ts — la mission ne possède plus de parcelles,
+// elle les référence via ses affectations.

@@ -12,7 +12,8 @@ datasource db {
 
 enum Role {
   ADMIN
-  RH
+  MANAGER
+  CLIENT
   CHEF_EQUIPE
   OUVRIER
 }
@@ -95,6 +96,20 @@ enum StatutCloture {
   ROUVERTE
 }
 
+enum ParcelleSource {
+  MANUEL
+  IMPORT_REFERENCE
+  IMPORT_POINT
+  IMPORT_GEOMETRIE
+}
+
+enum ImportStatut {
+  EN_ATTENTE
+  EN_COURS
+  TERMINE
+  ECHEC
+}
+
 model Organisation {
   id              String   @id @default(cuid())
   nom             String
@@ -117,6 +132,8 @@ model Organisation {
   competenceTags CompetenceTag[]
   candidatures   Candidature[]
   envois         EnvoiMessage[]
+  parcelles      Parcelle[]
+  importBatches  ImportBatch[]
 }
 
 model User {
@@ -144,6 +161,8 @@ model User {
   notesInternes      String?
   source             SourceProfil  @default(MANUEL)
   actif              Boolean       @default(true)
+  clientId           String? // rattachement à un Client si role = CLIENT (portail client)
+  client             Client?       @relation(fields: [clientId], references: [id])
   createdAt          DateTime      @default(now())
 
   // Rate-limiting PIN : blocage 15 min après 5 échecs
@@ -205,20 +224,25 @@ model Candidature {
 }
 
 model Client {
-  id                   String       @id @default(cuid())
-  organisationId       String
-  organisation         Organisation @relation(fields: [organisationId], references: [id])
-  nom                  String
-  contact              String?
-  telephone            String?
-  email                String?
-  adresse              String?
-  pennylaneCustomerId  String?
-  notes                String?
-  createdAt            DateTime     @default(now())
+  id                    String       @id @default(cuid())
+  organisationId        String
+  organisation          Organisation @relation(fields: [organisationId], references: [id])
+  nom                   String
+  contact               String?
+  telephone             String?
+  email                 String?
+  adresse               String?
+  couleur               String       @default("#FF5722") // affichage carte
+  afficherTarifAuClient Boolean      @default(false) // portail client : montrer le tarif de SA mission
+  pennylaneCustomerId   String?
+  notes                 String?
+  createdAt             DateTime     @default(now())
 
-  missions Mission[]
+  missions  Mission[]
+  parcelles Parcelle[]
+  users     User[] // comptes CLIENT (portail)
 
+  @@unique([organisationId, nom]) // dédoublonnage à l'import
   @@index([organisationId])
 }
 
@@ -238,7 +262,6 @@ model Mission {
   statut          StatutMission   @default(ACTIVE)
   notes           String?
 
-  parcelles    Parcelle[]
   affectations Affectation[]
   creneaux     CreneauHeures[]
   factures     FactureClient[]
@@ -246,16 +269,36 @@ model Mission {
   @@index([organisationId, statut])
 }
 
+// Règle 15 (V3) : la parcelle appartient au CLIENT (pas à la mission) →
+// historique multi-saisons par parcelle. Géométrie cadastrale IGN en GeoJSON.
 model Parcelle {
-  id           String  @id @default(cuid())
-  missionId    String
-  mission      Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  adresse      String
-  lat          Float?
-  lng          Float?
-  instructions String?
+  id             String         @id @default(cuid())
+  organisationId String
+  organisation   Organisation   @relation(fields: [organisationId], references: [id])
+  clientId       String
+  client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  codeInsee      String?
+  commune        String?
+  section        String?
+  numero         String?
+  geometry       Json? // GeoJSON MultiPolygon (nullable : adresse simple possible)
+  centroidLat    Float?
+  centroidLng    Float?
+  surfaceM2      Float? // contenance IGN
+  adresse        String? // fallback si pas de géométrie cadastrale
+  cepage         String?
+  millesime      Int?
+  instructions   String?
+  notes          String?
+  source         ParcelleSource @default(MANUEL)
+  createdAt      DateTime       @default(now())
 
-  affectations Affectation[]
+  affectations AffectationParcelle[]
+
+  @@unique([codeInsee, section, numero, clientId]) // anti-doublon import
+  @@index([centroidLat, centroidLng]) // chargement carte par viewport
+  @@index([organisationId])
+  @@index([clientId])
 }
 
 model Affectation {
@@ -265,8 +308,6 @@ model Affectation {
   date                DateTime     @db.Date
   missionId           String
   mission             Mission      @relation(fields: [missionId], references: [id])
-  parcelleId          String?
-  parcelle            Parcelle?    @relation(fields: [parcelleId], references: [id])
   heureDebut          String // "HH:MM"
   heureFinPrevue      String?
   pauseMinutesPrevue  Int?
@@ -275,11 +316,22 @@ model Affectation {
   publieAt            DateTime?
   createdAt           DateTime     @default(now())
 
-  ouvriers AffectationOuvrier[]
-  creneaux CreneauHeures[]
-  envois   EnvoiMessage[]
+  parcelles AffectationParcelle[] // multi-parcelles (V3)
+  ouvriers  AffectationOuvrier[]
+  creneaux  CreneauHeures[]
+  envois    EnvoiMessage[]
 
   @@index([organisationId, date])
+}
+
+model AffectationParcelle {
+  affectationId String
+  affectation   Affectation @relation(fields: [affectationId], references: [id], onDelete: Cascade)
+  parcelleId    String
+  parcelle      Parcelle    @relation(fields: [parcelleId], references: [id], onDelete: Cascade)
+
+  @@id([affectationId, parcelleId])
+  @@index([parcelleId])
 }
 
 model AffectationOuvrier {
@@ -457,6 +509,26 @@ model AuditLog {
   createdAt      DateTime     @default(now())
 
   @@index([organisationId, entite, entiteId])
+}
+
+// Import de masse clients + parcelles (§5.14) — traitement par lots résumable.
+model ImportBatch {
+  id                String       @id @default(cuid())
+  organisationId    String
+  organisation      Organisation @relation(fields: [organisationId], references: [id])
+  nomFichier        String
+  statut            ImportStatut @default(EN_ATTENTE)
+  totalLignes       Int          @default(0)
+  lignesTraitees    Int          @default(0)
+  clientsCrees      Int          @default(0)
+  parcellesCreees   Int          @default(0)
+  parcellesIgnorees Int          @default(0)
+  erreurs           Json? // [{ligne, raison, donnees}]
+  mapping           Json? // correspondance colonnes fichier -> champs cibles
+  payload           Json? // lignes parsées en attente de traitement
+  createdAt         DateTime     @default(now())
+
+  @@index([organisationId])
 }
 
 model PushSubscription {
