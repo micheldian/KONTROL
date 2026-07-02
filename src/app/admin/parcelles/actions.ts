@@ -9,14 +9,8 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/session';
 import { audit } from '@/lib/audit';
-import {
-  parcelleParReference,
-  parcelleParPoint,
-  centroide,
-  surfaceM2,
-  type GeoJSONGeometry
-} from '@/lib/geo';
-import type { Prisma } from '@prisma/client';
+import { parcelleParReference, parcelleParPoint } from '@/lib/geo';
+import { enregistrerParcelleCadastrale, type CadastreData } from '@/lib/parcelles';
 
 const attributsSchema = z.object({
   clientId: z.string().min(1),
@@ -47,56 +41,13 @@ async function creerDepuisCadastre(params: {
   organisationId: string;
   userId: string;
   clientId: string;
-  cad: {
-    codeInsee: string;
-    section: string;
-    numero: string;
-    commune?: string;
-    contenanceM2: number | null;
-    geometry: GeoJSONGeometry;
-  };
+  cad: CadastreData;
   extra: ReturnType<typeof attributs>;
   source: 'MANUEL' | 'IMPORT_REFERENCE' | 'IMPORT_POINT';
 }) {
-  const c = centroide(params.cad.geometry);
-  const existante = await prisma.parcelle.findFirst({
-    where: {
-      clientId: params.clientId,
-      codeInsee: params.cad.codeInsee,
-      section: params.cad.section,
-      numero: params.cad.numero
-    }
-  });
-  if (existante) throw new Error('Cette parcelle existe déjà pour ce client');
-
-  const parcelle = await prisma.parcelle.create({
-    data: {
-      organisationId: params.organisationId,
-      clientId: params.clientId,
-      codeInsee: params.cad.codeInsee,
-      commune: params.cad.commune ?? null,
-      section: params.cad.section,
-      numero: params.cad.numero,
-      geometry: params.cad.geometry as unknown as Prisma.InputJsonValue,
-      centroidLat: c?.lat ?? null,
-      centroidLng: c?.lng ?? null,
-      surfaceM2: params.cad.contenanceM2 ?? surfaceM2(params.cad.geometry),
-      source: params.source,
-      ...params.extra
-    }
-  });
-  await audit({
-    organisationId: params.organisationId,
-    userId: params.userId,
-    action: 'parcelle.create',
-    entite: 'Parcelle',
-    entiteId: parcelle.id,
-    apres: {
-      clientId: params.clientId,
-      ref: `${params.cad.codeInsee} ${params.cad.section} ${params.cad.numero}`
-    }
-  });
-  return parcelle;
+  const resultat = await enregistrerParcelleCadastrale(params);
+  if (resultat.doublon) throw new Error('Cette parcelle existe déjà pour ce client');
+  return resultat.parcelle;
 }
 
 /** Mode A : référence cadastrale (INSEE + section + numéro) → API Carto. */
