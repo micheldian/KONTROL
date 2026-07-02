@@ -62,7 +62,12 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       pour les diacritiques RO, format ticket), servi par /api/clotures/[id]/pdf (accès :
       ADMIN/RH ou l'ouvrier concerné). Export CSV compta (; + BOM Excel). Envoi du récap
       Telegram/wa.me (template RECAP). Mois clôturés visibles dans « Mon argent ».
-- [ ] Phase 10 — Pennylane
+- [x] **Phase 10 — Pennylane** : lib/pennylane.ts (API externe v2, clé par organisation ou
+      env, vide → SIMULATION avec ids sim_…), mapping clients auto (ensureCustomer, id stocké).
+      Composeur de facture depuis une mission (ADMIN seul) : lignes heures recalculées serveur
+      sur période (groupées ou détail par ouvrier, nominatif optionnel, taux modifiable),
+      ligne forfait/tâche, lignes libres, aperçu HT, envoi brouillon ou finalisée.
+      Liste des factures + synchronisation du statut (brouillon/envoyée/payée).
 - [ ] Phase 11 — Dashboard + alertes + crons
 - [ ] Phase 12 — PWA + push + polish + sécurité
 - [ ] Phase 13 — Vivier & Recrutement
