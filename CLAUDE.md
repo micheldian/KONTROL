@@ -43,7 +43,12 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       règle 5 : blocage soft si Σ acomptes > gagné validé du mois, case « Forcer » +
       audit `.force`. Portail : « Demander un acompte » (montant + motif, 1 demande en
       attente max), statut visible.
-- [ ] Phase 7 — Logements (séjours) + Retenues
+- [x] **Phase 7 — Séjours + Retenues** : fiche logement enrichie (séjours arrivée incluse /
+      départ exclu paramétrable, statuts présent/à venir/terminé, clôture de séjour, contrôle
+      anti-chevauchement par ouvrier, occupation vs capacité avec alerte sur-occupation).
+      Retenues : lignes libres (libellé/montant/date/note) par ouvrier, vue mensuelle,
+      suppression. Le décompte logement (indépendant des jours travaillés) est déjà branché
+      dans lib/money.ts.
 - [ ] Phase 8 — « Mon argent »
 - [ ] Phase 9 — Clôture mensuelle + PDF bilingue + export
 - [ ] Phase 10 — Pennylane

@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/session';
 import { audit } from '@/lib/audit';
+import { dateFromYMD } from '@/lib/dates';
 
 const logementSchema = z.object({
   nom: z.string().trim().min(1),
@@ -55,6 +56,108 @@ export async function saveLogement(formData: FormData) {
   }
   revalidatePath('/admin/logements');
   redirect('/admin/logements');
+}
+
+const sejourSchema = z.object({
+  logementId: z.string().min(1),
+  ouvrierId: z.string().min(1),
+  dateArrivee: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  dateDepart: z.string().optional()
+});
+
+/** Ouvre un séjour : arrivée incluse, départ exclu (règle 6). */
+export async function creerSejour(formData: FormData) {
+  const user = await requireAdmin();
+  const parsed = sejourSchema.parse(Object.fromEntries(formData.entries()));
+
+  const [logement, ouvrier] = await Promise.all([
+    prisma.logement.findFirst({
+      where: { id: parsed.logementId, organisationId: user.organisationId }
+    }),
+    prisma.user.findFirst({
+      where: { id: parsed.ouvrierId, organisationId: user.organisationId }
+    })
+  ]);
+  if (!logement || !ouvrier) throw new Error('Logement ou ouvrier introuvable');
+  if (parsed.dateDepart && parsed.dateDepart <= parsed.dateArrivee) {
+    throw new Error('La date de départ doit être après l’arrivée');
+  }
+
+  const chevauchant = await prisma.sejourLogement.findFirst({
+    where: {
+      userId: parsed.ouvrierId,
+      dateArrivee: { lt: parsed.dateDepart ? dateFromYMD(parsed.dateDepart) : new Date('2100-01-01') },
+      OR: [{ dateDepart: null }, { dateDepart: { gt: dateFromYMD(parsed.dateArrivee) } }]
+    }
+  });
+  if (chevauchant) throw new Error('Cet ouvrier a déjà un séjour sur cette période');
+
+  const sejour = await prisma.sejourLogement.create({
+    data: {
+      logementId: parsed.logementId,
+      userId: parsed.ouvrierId,
+      dateArrivee: dateFromYMD(parsed.dateArrivee),
+      dateDepart: parsed.dateDepart ? dateFromYMD(parsed.dateDepart) : null
+    }
+  });
+  await audit({
+    organisationId: user.organisationId,
+    userId: user.userId,
+    action: 'sejour.create',
+    entite: 'SejourLogement',
+    entiteId: sejour.id,
+    apres: parsed
+  });
+  revalidatePath(`/admin/logements/${parsed.logementId}`);
+}
+
+/** Clôt un séjour (départ, jour exclu par défaut). */
+export async function cloreSejour(formData: FormData) {
+  const user = await requireAdmin();
+  const id = formData.get('id') as string;
+  const dateDepart = formData.get('dateDepart') as string;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateDepart)) throw new Error('Date invalide');
+
+  const sejour = await prisma.sejourLogement.findFirst({
+    where: { id, logement: { organisationId: user.organisationId } }
+  });
+  if (!sejour) throw new Error('Séjour introuvable');
+  if (dateFromYMD(dateDepart) <= sejour.dateArrivee) {
+    throw new Error('Départ avant arrivée');
+  }
+
+  await prisma.sejourLogement.update({
+    where: { id },
+    data: { dateDepart: dateFromYMD(dateDepart) }
+  });
+  await audit({
+    organisationId: user.organisationId,
+    userId: user.userId,
+    action: 'sejour.clore',
+    entite: 'SejourLogement',
+    entiteId: id,
+    apres: { dateDepart }
+  });
+  revalidatePath(`/admin/logements/${sejour.logementId}`);
+}
+
+export async function supprimerSejour(formData: FormData) {
+  const user = await requireAdmin();
+  const id = formData.get('id') as string;
+  const sejour = await prisma.sejourLogement.findFirst({
+    where: { id, logement: { organisationId: user.organisationId } }
+  });
+  if (!sejour) throw new Error('Séjour introuvable');
+  await prisma.sejourLogement.delete({ where: { id } });
+  await audit({
+    organisationId: user.organisationId,
+    userId: user.userId,
+    action: 'sejour.delete',
+    entite: 'SejourLogement',
+    entiteId: id,
+    avant: sejour
+  });
+  revalidatePath(`/admin/logements/${sejour.logementId}`);
 }
 
 export async function deleteLogement(formData: FormData) {
