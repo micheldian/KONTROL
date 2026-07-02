@@ -63,3 +63,13 @@ Journal des ambiguïtés rencontrées et des choix faits (règle 4 du run autono
     (on ne peut pas savoir si le message a réellement été envoyé depuis WhatsApp).
 19. **Token Telegram** : parametres.telegramBotToken (par organisation) prioritaire, sinon
     TELEGRAM_BOT_TOKEN (env). Vide → SIMULE, tout le flux reste testable.
+
+## Phase 9 — Clôture
+
+20. **Clôture bloquée si heures EN_ATTENTE sur le mois** : la spec impose « uniquement les
+    heures validées » ; clôturer en ignorant des heures en attente les ferait disparaître du
+    récap. L'admin doit d'abord valider/corriger (message explicite par ouvrier).
+21. **Réouverture** : statut ROUVERTE (le snapshot reste lisible), re-clôture = nouveau
+    snapshot dans la même ligne (unicité org+ouvrier+mois), le tout tracé en AuditLog.
+22. **PDF généré à la volée** depuis le snapshot (pas de stockage de fichier) ; pdfUrl pointe
+    vers /api/clotures/[id]/pdf. Police DejaVu embarquée pour ă/î/ș/ț roumains.

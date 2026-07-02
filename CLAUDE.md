@@ -55,7 +55,13 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       tarif + séjours), retenues libellées, NET À RECEVOIR. Demande d'acompte intégrée,
       historique des mois clôturés (PDF, phase 9). Bloc situation temps réel ajouté à la
       fiche ouvrier admin (spec 4.3).
-- [ ] Phase 9 — Clôture mensuelle + PDF bilingue + export
+- [x] **Phase 9 — Clôture mensuelle** : snapshot immuable (ClotureMois.donnees JSON), par
+      ouvrier ou en masse, bloquée si heures EN_ATTENTE sur le mois. Versement tracé
+      (espèces/virement + date), réouverture ADMIN seule (statut ROUVERTE + audit) puis
+      re-clôture. PDF bilingue FR + langue ouvrier (@react-pdf/renderer, police DejaVu
+      pour les diacritiques RO, format ticket), servi par /api/clotures/[id]/pdf (accès :
+      ADMIN/RH ou l'ouvrier concerné). Export CSV compta (; + BOM Excel). Envoi du récap
+      Telegram/wa.me (template RECAP). Mois clôturés visibles dans « Mon argent ».
 - [ ] Phase 10 — Pennylane
 - [ ] Phase 11 — Dashboard + alertes + crons
 - [ ] Phase 12 — PWA + push + polish + sécurité
