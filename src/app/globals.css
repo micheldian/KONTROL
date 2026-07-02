@@ -3,25 +3,76 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  @apply bg-paper text-ink font-sans min-h-screen antialiased;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+@layer components {
+  .card {
+    @apply bg-white border-[1.5px] border-line rounded-card p-4;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl font-bold cursor-pointer
+      disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[15.5px] px-4;
+    min-height: 56px;
+  }
+  .btn-sm {
+    @apply inline-flex items-center justify-center gap-1 rounded-lg font-semibold cursor-pointer
+      disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[13px] px-3 py-2;
+  }
+  .btn-green {
+    @apply bg-brand text-white hover:bg-brand-dark;
+  }
+  .btn-ink {
+    @apply bg-ink text-white hover:opacity-90;
+  }
+  .btn-amber {
+    @apply bg-amber text-ink hover:opacity-90;
+  }
+  .btn-outline {
+    @apply bg-white border-[1.5px] border-line text-ink hover:border-brand;
+  }
+  .btn-done {
+    @apply bg-[#E6F2EA] text-ok border-[1.5px] border-ok;
+  }
+  .input {
+    @apply w-full bg-white border-[1.5px] border-line rounded-xl px-3.5 py-3 text-[15px]
+      focus:outline-none focus:border-brand;
+  }
+  .label {
+    @apply block text-xs uppercase tracking-wider text-muted font-semibold mb-1;
+  }
+  .badge {
+    @apply inline-flex items-center text-[11.5px] font-bold rounded-full px-2.5 py-1;
+  }
+  .badge-ok {
+    @apply bg-[#E6F2EA] text-ok;
+  }
+  .badge-warn {
+    @apply bg-[#FFF3EC] text-warn;
+  }
+  .badge-amber {
+    @apply bg-[#FFF9E8] text-[#B07900];
+  }
+  .badge-muted {
+    @apply bg-paper text-muted border border-line;
+  }
+  .slot-chip {
+    @apply inline-block font-mono font-bold text-[14px] bg-ink text-amber rounded-lg px-2.5 py-1;
+  }
+  .table-admin {
+    @apply w-full text-[14px];
+  }
+  .table-admin th {
+    @apply text-left text-xs uppercase tracking-wider text-muted font-semibold px-3 py-2.5 border-b-[1.5px] border-line;
+  }
+  .table-admin td {
+    @apply px-3 py-2.5 border-b border-line align-middle;
+  }
+  .table-admin tr:last-child td {
+    @apply border-b-0;
   }
 }

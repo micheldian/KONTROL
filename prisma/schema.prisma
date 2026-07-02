@@ -1,0 +1,470 @@
+// Krontrol — schéma complet (section 5 de la spec)
+// Toutes les entités portent organisationId (multi-tenant ready).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  RH
+  CHEF_EQUIPE
+  OUVRIER
+}
+
+enum StatutProfil {
+  CANDIDAT
+  VIVIER
+  ACTIF
+  INACTIF
+  LISTE_NOIRE
+}
+
+enum Langue {
+  FR
+  RO
+  ES
+}
+
+enum SourceProfil {
+  PORTAIL
+  MANUEL
+  IMPORT
+}
+
+enum StatutCandidature {
+  EN_ATTENTE
+  APPROUVEE
+  REFUSEE
+}
+
+enum ModeFacturation {
+  HEURE
+  TACHE
+}
+
+enum StatutMission {
+  ACTIVE
+  TERMINEE
+}
+
+enum CanalMessage {
+  TELEGRAM
+  WHATSAPP
+}
+
+enum ContexteMessage {
+  AFFECTATION
+  RECAP
+  VIVIER
+  AUTRE
+}
+
+enum StatutEnvoi {
+  ENVOYE
+  SIMULE
+  ECHEC
+  LIEN_GENERE
+}
+
+enum StatutCreneau {
+  EN_ATTENTE
+  VALIDE
+  CORRIGE
+}
+
+enum ModePaiement {
+  ESPECES
+  VIREMENT
+}
+
+enum StatutAcompte {
+  DEMANDE
+  APPROUVE
+  REFUSE
+  VERSE
+}
+
+enum StatutCloture {
+  CLOTUREE
+  ROUVERTE
+}
+
+model Organisation {
+  id              String   @id @default(cuid())
+  nom             String
+  tarifHoraireBase Decimal @default(12.5) @db.Decimal(8, 2)
+  // parametres : regleDepartLogementInclus, templates de messages, telegramBotToken, pennylaneApiKey…
+  parametres      Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  users          User[]
+  clients        Client[]
+  missions       Mission[]
+  affectations   Affectation[]
+  creneaux       CreneauHeures[]
+  acomptes       Acompte[]
+  retenues       Retenue[]
+  logements      Logement[]
+  clotures       ClotureMois[]
+  factures       FactureClient[]
+  auditLogs      AuditLog[]
+  competenceTags CompetenceTag[]
+  candidatures   Candidature[]
+  envois         EnvoiMessage[]
+}
+
+model User {
+  id                 String        @id @default(cuid())
+  organisationId     String
+  organisation       Organisation  @relation(fields: [organisationId], references: [id])
+  role               Role          @default(OUVRIER)
+  statutProfil       StatutProfil  @default(ACTIF)
+  nom                String
+  prenom             String
+  telephone          String        @unique
+  email              String?       @unique
+  pinHash            String?
+  motDePasseHash     String?
+  langue             Langue        @default(FR)
+  tauxHoraire        Decimal?      @db.Decimal(8, 2)
+  iban               String?
+  estChefEquipe      Boolean       @default(false)
+  note               Int? // 1-5, modifiable uniquement par ADMIN, jamais visible ouvrier
+  noteCommentaire    String?
+  experienceDeclaree String?
+  listeNoireMotif    String?
+  listeNoireAt       DateTime?
+  listeNoireParId    String?
+  notesInternes      String?
+  source             SourceProfil  @default(MANUEL)
+  actif              Boolean       @default(true)
+  createdAt          DateTime      @default(now())
+
+  // Rate-limiting PIN : blocage 15 min après 5 échecs
+  pinEchecs       Int       @default(0)
+  pinBloqueJusqua DateTime?
+
+  telegramChatId String?
+
+  competences        UserCompetence[]
+  affectationsOuvrier AffectationOuvrier[]
+  creneaux           CreneauHeures[]      @relation("CreneauxOuvrier")
+  acomptes           Acompte[]
+  retenues           Retenue[]
+  sejours            SejourLogement[]
+  clotures           ClotureMois[]
+  candidatures       Candidature[]
+  envoisRecus        EnvoiMessage[]
+  pushSubscriptions  PushSubscription[]
+
+  @@index([organisationId, statutProfil])
+  @@index([organisationId, role])
+}
+
+model CompetenceTag {
+  id             String       @id @default(cuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id])
+  libelle        String
+  actif          Boolean      @default(true)
+
+  users UserCompetence[]
+
+  @@unique([organisationId, libelle])
+}
+
+model UserCompetence {
+  id     String        @id @default(cuid())
+  userId String
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tagId  String
+  tag    CompetenceTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tagId])
+}
+
+model Candidature {
+  id             String            @id @default(cuid())
+  organisationId String
+  organisation   Organisation      @relation(fields: [organisationId], references: [id])
+  userId         String
+  user           User              @relation(fields: [userId], references: [id])
+  statut         StatutCandidature @default(EN_ATTENTE)
+  motifRefus     String?
+  creeAt         DateTime          @default(now())
+  traiteParId    String?
+  traiteAt       DateTime?
+
+  @@index([organisationId, statut])
+}
+
+model Client {
+  id                   String       @id @default(cuid())
+  organisationId       String
+  organisation         Organisation @relation(fields: [organisationId], references: [id])
+  nom                  String
+  contact              String?
+  telephone            String?
+  email                String?
+  adresse              String?
+  pennylaneCustomerId  String?
+  notes                String?
+  createdAt            DateTime     @default(now())
+
+  missions Mission[]
+
+  @@index([organisationId])
+}
+
+model Mission {
+  id              String          @id @default(cuid())
+  organisationId  String
+  organisation    Organisation    @relation(fields: [organisationId], references: [id])
+  clientId        String
+  client          Client          @relation(fields: [clientId], references: [id])
+  libelle         String
+  typeTravaux     String?
+  modeFacturation ModeFacturation @default(HEURE)
+  tauxClient      Decimal?        @db.Decimal(8, 2)
+  montantForfait  Decimal?        @db.Decimal(10, 2)
+  dateDebut       DateTime        @db.Date
+  dateFin         DateTime?       @db.Date
+  statut          StatutMission   @default(ACTIVE)
+  notes           String?
+
+  parcelles    Parcelle[]
+  affectations Affectation[]
+  creneaux     CreneauHeures[]
+  factures     FactureClient[]
+
+  @@index([organisationId, statut])
+}
+
+model Parcelle {
+  id           String  @id @default(cuid())
+  missionId    String
+  mission      Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  adresse      String
+  lat          Float?
+  lng          Float?
+  instructions String?
+
+  affectations Affectation[]
+}
+
+model Affectation {
+  id                  String       @id @default(cuid())
+  organisationId      String
+  organisation        Organisation @relation(fields: [organisationId], references: [id])
+  date                DateTime     @db.Date
+  missionId           String
+  mission             Mission      @relation(fields: [missionId], references: [id])
+  parcelleId          String?
+  parcelle            Parcelle?    @relation(fields: [parcelleId], references: [id])
+  heureDebut          String // "HH:MM"
+  heureFinPrevue      String?
+  pauseMinutesPrevue  Int?
+  chefEquipeId        String?
+  instructions        String?
+  publieAt            DateTime?
+  createdAt           DateTime     @default(now())
+
+  ouvriers AffectationOuvrier[]
+  creneaux CreneauHeures[]
+  envois   EnvoiMessage[]
+
+  @@index([organisationId, date])
+}
+
+model AffectationOuvrier {
+  id            String      @id @default(cuid())
+  affectationId String
+  affectation   Affectation @relation(fields: [affectationId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  confirme      Boolean     @default(false)
+  confirmeAt    DateTime?
+
+  @@unique([affectationId, userId])
+  @@index([userId])
+}
+
+model EnvoiMessage {
+  id                 String          @id @default(cuid())
+  organisationId     String
+  organisation       Organisation    @relation(fields: [organisationId], references: [id])
+  affectationId      String?
+  affectation        Affectation?    @relation(fields: [affectationId], references: [id])
+  clotureId          String?
+  cloture            ClotureMois?    @relation(fields: [clotureId], references: [id])
+  canal              CanalMessage
+  destinataireUserId String
+  destinataire       User            @relation(fields: [destinataireUserId], references: [id])
+  contenu            String
+  contexte           ContexteMessage @default(AUTRE)
+  statut             StatutEnvoi     @default(ENVOYE)
+  envoyeAt           DateTime        @default(now())
+
+  @@index([organisationId, contexte])
+}
+
+model CreneauHeures {
+  id              String        @id @default(cuid())
+  organisationId  String
+  organisation    Organisation  @relation(fields: [organisationId], references: [id])
+  userId          String
+  user            User          @relation("CreneauxOuvrier", fields: [userId], references: [id])
+  date            DateTime      @db.Date
+  missionId       String
+  mission         Mission       @relation(fields: [missionId], references: [id])
+  affectationId   String?
+  affectation     Affectation?  @relation(fields: [affectationId], references: [id])
+  heureDebut      String // "HH:MM"
+  heureFin        String // "HH:MM"
+  pauseMinutes    Int           @default(0)
+  heuresCalculees Decimal       @db.Decimal(6, 2)
+  tauxApplique    Decimal?      @db.Decimal(8, 2) // pour majorations futures (règle métier 2)
+  saisiParId      String
+  statut          StatutCreneau @default(EN_ATTENTE)
+  valideParId     String?
+  valideAt        DateTime?
+  commentaire     String?
+  createdAt       DateTime      @default(now())
+
+  @@index([organisationId, date])
+  @@index([organisationId, userId, date])
+  @@index([organisationId, statut])
+}
+
+model Acompte {
+  id             String        @id @default(cuid())
+  organisationId String
+  organisation   Organisation  @relation(fields: [organisationId], references: [id])
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  montant        Decimal       @db.Decimal(10, 2)
+  date           DateTime      @db.Date
+  mode           ModePaiement?
+  note           String?
+  statut         StatutAcompte @default(VERSE)
+  demandeAt      DateTime?
+  traiteParId    String?
+
+  @@index([organisationId, userId])
+  @@index([organisationId, statut])
+}
+
+model Retenue {
+  id             String       @id @default(cuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id])
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  libelle        String
+  montant        Decimal      @db.Decimal(10, 2)
+  date           DateTime     @db.Date
+  note           String?
+
+  @@index([organisationId, userId])
+}
+
+model Logement {
+  id             String       @id @default(cuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id])
+  nom            String
+  adresse        String?
+  capacite       Int          @default(1)
+  tarifJour      Decimal      @db.Decimal(8, 2)
+
+  sejours SejourLogement[]
+
+  @@index([organisationId])
+}
+
+model SejourLogement {
+  id          String    @id @default(cuid())
+  logementId  String
+  logement    Logement  @relation(fields: [logementId], references: [id])
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  dateArrivee DateTime  @db.Date // jour inclus
+  dateDepart  DateTime? @db.Date // jour exclu (paramétrable)
+
+  @@index([userId])
+  @@index([logementId])
+}
+
+model ClotureMois {
+  id             String        @id @default(cuid())
+  organisationId String
+  organisation   Organisation  @relation(fields: [organisationId], references: [id])
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  mois           Int // 1-12
+  annee          Int
+  totalHeures    Decimal       @db.Decimal(8, 2)
+  totalBrut      Decimal       @db.Decimal(10, 2)
+  totalAcomptes  Decimal       @db.Decimal(10, 2)
+  totalLogement  Decimal       @db.Decimal(10, 2)
+  totalRetenues  Decimal       @db.Decimal(10, 2)
+  netAVerser     Decimal       @db.Decimal(10, 2)
+  donnees        Json // snapshot immuable du détail (lignes du ticket)
+  modeVersement  ModePaiement?
+  verseAt        DateTime?
+  pdfUrl         String?
+  statut         StatutCloture @default(CLOTUREE)
+  clotureAt      DateTime      @default(now())
+  clotureParId   String
+
+  envois EnvoiMessage[]
+
+  @@unique([organisationId, userId, mois, annee])
+  @@index([organisationId, annee, mois])
+}
+
+model FactureClient {
+  id                 String       @id @default(cuid())
+  organisationId     String
+  organisation       Organisation @relation(fields: [organisationId], references: [id])
+  missionId          String
+  mission            Mission      @relation(fields: [missionId], references: [id])
+  pennylaneInvoiceId String?
+  lignes             Json
+  statut             String       @default("BROUILLON") // BROUILLON | FINALISEE | ENVOYEE | PAYEE | SIMULEE
+  montantHT          Decimal      @db.Decimal(12, 2)
+  creeAt             DateTime     @default(now())
+
+  @@index([organisationId])
+}
+
+model AuditLog {
+  id             String       @id @default(cuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id])
+  userId         String
+  action         String
+  entite         String
+  entiteId       String
+  avant          Json?
+  apres          Json?
+  createdAt      DateTime     @default(now())
+
+  @@index([organisationId, entite, entiteId])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+}

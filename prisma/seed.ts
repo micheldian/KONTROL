@@ -1,0 +1,250 @@
+// Seed de développement : organisation Pickajob + comptes de test.
+// Lancer avec : npx prisma db seed
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+
+const prisma = new PrismaClient();
+
+const TAGS = [
+  'taille',
+  'palissage',
+  'vendanges',
+  'relevage',
+  'cueillette',
+  'tracteur',
+  'permis B',
+  'chef d’équipe',
+  'parle français'
+];
+
+async function main() {
+  const org = await prisma.organisation.upsert({
+    where: { id: 'org-pickajob' },
+    update: {},
+    create: {
+      id: 'org-pickajob',
+      nom: 'Pickajob',
+      tarifHoraireBase: 12.5,
+      parametres: { regleDepartLogementInclus: false }
+    }
+  });
+
+  for (const libelle of TAGS) {
+    await prisma.competenceTag.upsert({
+      where: { organisationId_libelle: { organisationId: org.id, libelle } },
+      update: {},
+      create: { organisationId: org.id, libelle }
+    });
+  }
+
+  const mdp = await bcrypt.hash('admin123', 10);
+  const pin = await bcrypt.hash('1234', 10);
+
+  await prisma.user.upsert({
+    where: { telephone: '+33600000001' },
+    update: {},
+    create: {
+      organisationId: org.id,
+      role: 'ADMIN',
+      statutProfil: 'ACTIF',
+      nom: 'Dian',
+      prenom: 'Michel',
+      telephone: '+33600000001',
+      email: 'admin@pickajob.fr',
+      motDePasseHash: mdp,
+      langue: 'FR'
+    }
+  });
+
+  await prisma.user.upsert({
+    where: { telephone: '+33600000002' },
+    update: {},
+    create: {
+      organisationId: org.id,
+      role: 'RH',
+      statutProfil: 'ACTIF',
+      nom: 'Pickajob',
+      prenom: 'RH',
+      telephone: '+33600000002',
+      email: 'rh@pickajob.fr',
+      motDePasseHash: mdp,
+      langue: 'FR'
+    }
+  });
+
+  const chef = await prisma.user.upsert({
+    where: { telephone: '+40711111111' },
+    update: {},
+    create: {
+      organisationId: org.id,
+      role: 'CHEF_EQUIPE',
+      statutProfil: 'ACTIF',
+      nom: 'Marinescu',
+      prenom: 'Ion',
+      telephone: '+40711111111',
+      pinHash: pin,
+      langue: 'RO',
+      estChefEquipe: true,
+      tauxHoraire: 14
+    }
+  });
+
+  const vasile = await prisma.user.upsert({
+    where: { telephone: '+40722222222' },
+    update: {},
+    create: {
+      organisationId: org.id,
+      role: 'OUVRIER',
+      statutProfil: 'ACTIF',
+      nom: 'Popescu',
+      prenom: 'Vasile',
+      telephone: '+40722222222',
+      pinHash: pin,
+      langue: 'RO'
+    }
+  });
+
+  await prisma.user.upsert({
+    where: { telephone: '+40733333333' },
+    update: {},
+    create: {
+      organisationId: org.id,
+      role: 'OUVRIER',
+      statutProfil: 'ACTIF',
+      nom: 'Stoica',
+      prenom: 'Andrei',
+      telephone: '+40733333333',
+      pinHash: pin,
+      langue: 'RO'
+    }
+  });
+
+  await prisma.user.upsert({
+    where: { telephone: '+34644444444' },
+    update: {},
+    create: {
+      organisationId: org.id,
+      role: 'OUVRIER',
+      statutProfil: 'ACTIF',
+      nom: 'García',
+      prenom: 'José',
+      telephone: '+34644444444',
+      pinHash: pin,
+      langue: 'ES'
+    }
+  });
+
+  const schmitt = await prisma.client.upsert({
+    where: { id: 'client-schmitt' },
+    update: {},
+    create: {
+      id: 'client-schmitt',
+      organisationId: org.id,
+      nom: 'Domaine Schmitt',
+      contact: 'Paul Schmitt',
+      telephone: '+33388000001',
+      adresse: '12 route des Vignes, Eguisheim'
+    }
+  });
+
+  const muller = await prisma.client.upsert({
+    where: { id: 'client-muller' },
+    update: {},
+    create: {
+      id: 'client-muller',
+      organisationId: org.id,
+      nom: 'EARL Muller',
+      contact: 'Anne Muller',
+      telephone: '+33388000002',
+      adresse: '4 chemin du Florimont, Ingersheim'
+    }
+  });
+
+  const annee = new Date().getFullYear();
+
+  const missionSchmitt = await prisma.mission.upsert({
+    where: { id: 'mission-schmitt-relevage' },
+    update: {},
+    create: {
+      id: 'mission-schmitt-relevage',
+      organisationId: org.id,
+      clientId: schmitt.id,
+      libelle: 'Relevage Est',
+      typeTravaux: 'Relevage',
+      modeFacturation: 'HEURE',
+      tauxClient: 26,
+      dateDebut: new Date(`${annee}-05-01T00:00:00Z`)
+    }
+  });
+
+  await prisma.parcelle.upsert({
+    where: { id: 'parcelle-schmitt-est' },
+    update: {},
+    create: {
+      id: 'parcelle-schmitt-est',
+      missionId: missionSchmitt.id,
+      adresse: '12 route des Vignes, Eguisheim',
+      instructions: 'Relevage parcelle Est. Apporter sécateurs.'
+    }
+  });
+
+  const missionMuller = await prisma.mission.upsert({
+    where: { id: 'mission-muller-palissage' },
+    update: {},
+    create: {
+      id: 'mission-muller-palissage',
+      organisationId: org.id,
+      clientId: muller.id,
+      libelle: 'Palissage',
+      typeTravaux: 'Palissage',
+      modeFacturation: 'TACHE',
+      montantForfait: 4200,
+      dateDebut: new Date(`${annee}-05-15T00:00:00Z`)
+    }
+  });
+
+  await prisma.parcelle.upsert({
+    where: { id: 'parcelle-muller-florimont' },
+    update: {},
+    create: {
+      id: 'parcelle-muller-florimont',
+      missionId: missionMuller.id,
+      adresse: '4 chemin du Florimont, Ingersheim',
+      instructions: 'Pause 30 min à 13h. Eau fournie sur place.'
+    }
+  });
+
+  const logement = await prisma.logement.upsert({
+    where: { id: 'logement-mommenheim' },
+    update: {},
+    create: {
+      id: 'logement-mommenheim',
+      organisationId: org.id,
+      nom: 'Maison Mommenheim',
+      adresse: '3 rue des Champs, Mommenheim',
+      capacite: 8,
+      tarifJour: 12
+    }
+  });
+
+  const moisCourant = new Date().toISOString().slice(0, 7);
+  await prisma.sejourLogement.upsert({
+    where: { id: 'sejour-vasile' },
+    update: {},
+    create: {
+      id: 'sejour-vasile',
+      logementId: logement.id,
+      userId: vasile.id,
+      dateArrivee: new Date(`${moisCourant}-01T00:00:00Z`)
+    }
+  });
+
+  console.log('Seed OK — admin@pickajob.fr / admin123 · ouvrier +40722222222 PIN 1234');
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(() => prisma.$disconnect());
