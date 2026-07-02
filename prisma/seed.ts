@@ -58,7 +58,7 @@ async function main() {
 
   await prisma.user.upsert({
     where: { telephone: '+33600000002' },
-    update: { role: 'MANAGER' },
+    update: { role: 'MANAGER', email: 'manager@pickajob.fr' },
     create: {
       organisationId: org.id,
       role: 'MANAGER',

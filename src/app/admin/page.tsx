@@ -2,13 +2,15 @@ import Link from 'next/link';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { syntheseDuJour } from '@/lib/alertes';
-import { formatJour, formatEuros } from '@/lib/dates';
+import { formatJour, formatEuros, todayParis, dateFromYMD } from '@/lib/dates';
+import { refParcelle } from '@/lib/geo';
+import CarteLectureLoader from '@/components/carte/CarteLectureLoader';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
   const user = await requireAdmin();
-  const [org, nbOuvriers, synthese] = await Promise.all([
+  const [org, nbOuvriers, synthese, affectationsJour] = await Promise.all([
     prisma.organisation.findUnique({ where: { id: user.organisationId } }),
     prisma.user.count({
       where: {
@@ -17,8 +19,34 @@ export default async function AdminDashboard() {
         role: { in: ['OUVRIER', 'CHEF_EQUIPE'] }
       }
     }),
-    syntheseDuJour(user.organisationId)
+    syntheseDuJour(user.organisationId),
+    prisma.affectation.findMany({
+      where: { organisationId: user.organisationId, date: dateFromYMD(todayParis()) },
+      include: {
+        mission: { include: { client: { select: { nom: true, couleur: true } } } },
+        parcelles: { include: { parcelle: true } },
+        ouvriers: { select: { confirme: true } }
+      }
+    })
   ]);
+
+  // Mini-carte du jour : parcelles des affectations, bordure par statut de confirmation
+  const parcellesJour = affectationsJour.flatMap((a) => {
+    const total = a.ouvriers.length;
+    const confirmes = a.ouvriers.filter((o) => o.confirme).length;
+    const bordure = total > 0 && confirmes === total ? '#2E7D32' : '#F59E0B';
+    return a.parcelles.map((ap) => ({
+      id: `${a.id}-${ap.parcelleId}`,
+      ref: refParcelle(ap.parcelle),
+      sousTitre: `${a.mission.client.nom} · ${a.heureDebut}`,
+      statutLibelle: `Confirmations : ${confirmes}/${total}`,
+      couleur: a.mission.client.couleur,
+      bordure,
+      geometry: ap.parcelle.geometry,
+      centroidLat: ap.parcelle.centroidLat,
+      centroidLng: ap.parcelle.centroidLng
+    }));
+  });
 
   const alertes = [
     {
@@ -99,6 +127,21 @@ export default async function AdminDashboard() {
           </Link>
         ))}
       </div>
+
+      {parcellesJour.some((p) => p.geometry) && (
+        <>
+          <h2 className="mb-2 mt-7 text-[16px] font-bold">
+            🗺 Parcelles du jour
+            <span className="ml-2 text-[12.5px] font-normal text-muted">
+              bordure verte = équipe confirmée, orange = en attente ·{' '}
+              <Link href="/admin/carte" className="underline">
+                carte complète
+              </Link>
+            </span>
+          </h2>
+          <CarteLectureLoader parcelles={parcellesJour} hauteur="320px" />
+        </>
+      )}
 
       {synthese.sansAffectation.length > 0 && (
         <>

@@ -1,6 +1,8 @@
 # CLAUDE.md — État du projet Krontrol
 
-SaaS de gestion de main-d'œuvre agricole saisonnière (spec : KRONTROL-PROMPT-V2, 13 phases).
+SaaS de gestion de main-d'œuvre agricole saisonnière (spec : **KRONTROL-PROMPT-V3** —
+V2 + rôle MANAGER + parcelles cadastrales du client + carte IGN + import de masse +
+portail client lecture seule).
 Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée par
 `organisationId` issu de la session.
 
@@ -92,6 +94,33 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       langue, statut) + tri note/nom/dernière saison. Contact wa.me/Telegram individuel et
       groupé (template VIVIER langue du profil, éditable, journalisé), réactivation 1 clic
       (historique conservé, PIN gardé ou re-saisi).
+- [x] **Phase 14 (V3) — Rôles & parcelles client** : RH → MANAGER (mêmes droits back-office,
+      jamais Pennylane/paramètres/comptes/notes 5★ — gardes `requireAdminStrict`), nouveau
+      rôle CLIENT (email/mdp, `User.clientId`). **Parcelle rattachée au CLIENT** (règle 15) :
+      champs cadastraux (INSEE/section/numéro), géométrie GeoJSON, centroïde indexé, surface,
+      cépage/millésime, source, anti-doublon `(codeInsee, section, numero, clientId)`.
+      Affectations **multi-parcelles** (`AffectationParcelle`), messages avec bloc parcelles
+      numéroté (réf + surface + lien Maps) + Telegram `sendLocation` par parcelle, écran
+      ouvrier avec itinéraire par centroïde + mini-aperçu statique IGN (WMS + SVG).
+      Bases existantes : exécuter `prisma/migration-v3.sql` AVANT `prisma db push`.
+- [x] **Phase 15 (V3) — Carte & import** : `/admin/carte` Leaflet plein écran, 3 fonds IGN
+      Géoplateforme (ortho/Plan IGN/overlay cadastre, gratuits sans clé), polygones colorés
+      par client + bordure statut (gris/orange/vert), chargement par viewport, panneau
+      filtrable, saisie Mode A (autocomplétion commune API Géo → API Carto par référence)
+      et Mode B (« Pointer une parcelle » → API Carto par point), multi-candidates,
+      sélection multiple → affectation pré-remplie. `/admin/import-parcelles` : xlsx/xls/
+      csv/geojson/kml parsés navigateur, modèle Excel, mapping interactif, aperçu +
+      validation à blanc, lots résumables (`/api/import/[id]/process`, 15 lignes/appel,
+      5 appels IGN max — contrainte Vercel), dédoublonnage, rapport d'erreurs .xlsx,
+      reprise après rechargement. Tous les appels IGN passent par le serveur.
+- [x] **Phase 16 (V3) — Portail client** : `/client` lecture seule FR (rôle CLIENT) —
+      Mes missions (heures validées temps réel, tarif seulement si
+      `Client.afficherTarifAuClient`), Ma carte (parcelles du client + statut dernière
+      intervention), Planning (affectations publiées à venir, « N ouvriers », noms visibles
+      seulement si paramètre org `afficherNomsOuvriersAuClient`, chef montré), Historique
+      par parcelle (carnet de travaux : date, travaux, heures validées). Jamais de taux
+      ouvriers/acomptes/logements/vivier. Mini-carte « parcelles du jour » sur le dashboard
+      admin (bordure = confirmations équipe). Comptes CLIENT gérés dans Paramètres.
 
 ## Lancer le projet en local
 
@@ -112,7 +141,8 @@ npm run dev               # http://localhost:3000
 | Rôle | Identifiant | Secret |
 |---|---|---|
 | ADMIN | admin@pickajob.fr (sur /admin/login) | admin123 |
-| RH | rh@pickajob.fr | admin123 |
+| MANAGER | manager@pickajob.fr | admin123 |
+| CLIENT (portail /client) | client@domaine-schmitt.fr (sur /client/login) | admin123 |
 | Chef d'équipe | +40711111111 (sur /) | PIN 1234 |
 | Ouvrier (RO) | +40722222222 | PIN 1234 |
 | Ouvrier (RO) | +40733333333 | PIN 1234 |
@@ -128,7 +158,7 @@ npm run dev               # http://localhost:3000
 prisma/schema.prisma      # modèle complet (section 5) + rate-limit PIN + push
 prisma/seed.ts
 src/
-  middleware.ts           # garde /admin (ADMIN|RH) et /app (OUVRIER|CHEF_EQUIPE)
+  middleware.ts           # garde /admin (ADMIN|MANAGER), /app (ouvriers), /client (CLIENT)
   i18n/request.ts         # locale par cookie NEXT_LOCale, tz Europe/Paris
   messages/{fr,ro,es}.json
   lib/

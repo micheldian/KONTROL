@@ -12,6 +12,7 @@ const NAV: Array<{ href: string; label: string; adminOnly?: boolean }> = [
   { href: '/admin/candidatures', label: 'Candidatures' },
   { href: '/admin/clients', label: 'Clients' },
   { href: '/admin/missions', label: 'Missions' },
+  { href: '/admin/import-parcelles', label: 'Import' },
   { href: '/admin/logements', label: 'Logements' },
   { href: '/admin/acomptes', label: 'Acomptes' },
   { href: '/admin/retenues', label: 'Retenues' },
