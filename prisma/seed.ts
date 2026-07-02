@@ -289,6 +289,41 @@ async function main() {
     }
   }
 
+  // Candidat de démo (portail /rejoindre) + candidature à valider
+  const candidat = await prisma.user.upsert({
+    where: { telephone: '+40755555555' },
+    update: {},
+    create: {
+      organisationId: org.id,
+      role: 'OUVRIER',
+      statutProfil: 'CANDIDAT',
+      nom: 'Ionescu',
+      prenom: 'Mihai',
+      telephone: '+40755555555',
+      langue: 'RO',
+      experienceDeclaree: '3 saisons de vendanges en Champagne, taille hiver 2024',
+      source: 'PORTAIL'
+    }
+  });
+  const tagTaille = await prisma.competenceTag.findUnique({
+    where: { organisationId_libelle: { organisationId: org.id, libelle: 'taille' } }
+  });
+  if (tagTaille) {
+    await prisma.userCompetence.upsert({
+      where: { userId_tagId: { userId: candidat.id, tagId: tagTaille.id } },
+      update: {},
+      create: { userId: candidat.id, tagId: tagTaille.id }
+    });
+  }
+  const dejaCandidature = await prisma.candidature.findFirst({
+    where: { userId: candidat.id }
+  });
+  if (!dejaCandidature) {
+    await prisma.candidature.create({
+      data: { organisationId: org.id, userId: candidat.id }
+    });
+  }
+
   console.log('Seed OK — admin@pickajob.fr / admin123 · ouvrier +40722222222 PIN 1234');
 }
 

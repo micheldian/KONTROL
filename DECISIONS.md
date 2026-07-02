@@ -87,3 +87,21 @@ Journal des ambiguïtés rencontrées et des choix faits (règle 4 du run autono
     uniquement à l'ADMIN/RH de l'organisation ou à l'ouvrier concerné.
 26. **Abonnement push silencieux** : demandé au premier chargement du portail (après login) ;
     sans clés VAPID tout est no-op, l'app reste 100 % fonctionnelle.
+
+## Phase 13 — Vivier & Recrutement
+
+27. **Portail /rejoindre mono-organisation** : rattaché à la première organisation créée
+    (Pickajob). Pour un multi-tenant public, prévoir un slug par organisation
+    (/rejoindre/[slug]) — hors périmètre du premier client.
+28. **Honeypot rempli → réponse « merci » factice** : le bot croit avoir réussi, aucune
+    donnée n'est créée. Rate-limit : 5 envois / 10 min / IP (mémoire d'instance).
+29. **Candidature d'un numéro existant** : jamais de doublon (règle 11) — la candidature est
+    rattachée au profil, badge « profil existant » dans la file, bandeau rouge si liste
+    noire ; l'expérience déclarée complète le profil sans l'écraser.
+30. **Refus de candidature** : le profil reste CANDIDAT (historisé) ; seule la mise en liste
+    noire change son statut. Un refus n'interdit pas une candidature future.
+31. **Contact vivier bloqué pour les profils liste noire** (serveur), et filtre combinable
+    « compétences » en ET logique (tous les tags cochés exigés) — correspond à la requête
+    cible de la spec.
+32. **Réactivation** : VIVIER/INACTIF → ACTIF en un clic si un PIN existe ; sinon le champ
+    PIN est demandé inline (4 chiffres). Échecs PIN remis à zéro à la réactivation.

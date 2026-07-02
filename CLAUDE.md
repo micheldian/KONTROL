@@ -81,7 +81,17 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       tarif de base, règle départ logement, token Telegram, clé Pennylane, modèles de
       messages 3×3, tags de compétences, comptes ADMIN/RH. Durcissements : secret webhook
       Telegram, rate-limiting du login admin (5 échecs → 15 min), en-têtes sécurité.
-- [ ] Phase 13 — Vivier & Recrutement
+- [x] **Phase 13 — Vivier & Recrutement** : portail public /rejoindre trilingue (formulaire
+      simple, compétences en boutons, honeypot + rate-limit IP, dédoublonnage par téléphone
+      → rattachement au profil existant, écran de confirmation traduit). File « Candidatures
+      à valider » (approuver → VIVIER / refuser / liste noire motif obligatoire, bandeau
+      rouge si téléphone en liste noire). Fiche profil : note 5★ ADMIN seul (jamais visible
+      ouvrier), commentaire, tags, historique auto (saisons/heures/missions/taux de
+      confirmation/logements), notes internes, liste noire tracée + sortie ADMIN.
+      Recherche vivier : nom/téléphone + filtres combinables (compétences ET, note min,
+      langue, statut) + tri note/nom/dernière saison. Contact wa.me/Telegram individuel et
+      groupé (template VIVIER langue du profil, éditable, journalisé), réactivation 1 clic
+      (historique conservé, PIN gardé ou re-saisi).
 
 ## Lancer le projet en local
 
