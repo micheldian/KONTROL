@@ -1,0 +1,6 @@
+{
+  "crons": [
+    { "path": "/api/cron/loges-sans-affectation", "schedule": "0 5 * * *" },
+    { "path": "/api/cron/rappel-heures", "schedule": "0 17 * * *" }
+  ]
+}

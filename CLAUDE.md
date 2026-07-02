@@ -68,7 +68,12 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       sur période (groupées ou détail par ouvrier, nominatif optionnel, taux modifiable),
       ligne forfait/tâche, lignes libres, aperçu HT, envoi brouillon ou finalisée.
       Liste des factures + synchronisation du statut (brouillon/envoyée/payée).
-- [ ] Phase 11 — Dashboard + alertes + crons
+- [x] **Phase 11 — Dashboard + alertes + crons** : lib/alertes.ts (logés sans affectation
+      nominatif, heures non saisies, acomptes > gagné, synthèse du jour). Dashboard : 6
+      cartes d'alerte cliquables (rouge/ambre/vert) + listes nominatives + compteurs du jour.
+      Crons Vercel (vercel.json, Authorization: Bearer CRON_SECRET) : /api/cron/
+      loges-sans-affectation (7h Paris ≈ 5h UTC) et rappel-heures (19h ≈ 17h UTC — push PWA
+      + Telegram, simulation si vide). lib/push.ts (web-push, no-op si clés VAPID vides).
 - [ ] Phase 12 — PWA + push + polish + sécurité
 - [ ] Phase 13 — Vivier & Recrutement
 
