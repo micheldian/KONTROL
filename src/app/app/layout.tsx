@@ -2,6 +2,7 @@ import { requireWorker } from '@/lib/session';
 import LangSwitcher from '@/components/LangSwitcher';
 import LogoutButton from '@/components/LogoutButton';
 import WorkerTabbar from '@/components/WorkerTabbar';
+import PwaSetup from '@/components/PwaSetup';
 
 export default async function WorkerLayout({
   children
@@ -12,6 +13,7 @@ export default async function WorkerLayout({
 
   return (
     <div className="mx-auto flex min-h-screen max-w-[430px] flex-col">
+      <PwaSetup />
       <div className="flex items-center justify-between px-4 pb-1 pt-3.5">
         <div>
           <div className="text-[16px] font-bold leading-tight">{user.name}</div>

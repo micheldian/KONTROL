@@ -14,6 +14,8 @@ import {
   telegramToken
 } from '@/lib/messaging/channel';
 import { renduTemplate, type LangueCode } from '@/lib/messaging/templates';
+import { envoyerPushAUtilisateur } from '@/lib/push';
+import { PUSH_MESSAGES } from '@/lib/push-messages';
 
 /** Clôture le mois d'un ouvrier : snapshot immuable, uniquement les heures validées. */
 async function cloturerUn(params: {
@@ -102,6 +104,14 @@ async function cloturerUn(params: {
     entiteId: cloture.id,
     apres: { ouvrierId, mois, annee, net: recap.net }
   });
+
+  const ouvrier = await prisma.user.findUnique({ where: { id: ouvrierId } });
+  if (ouvrier) {
+    await envoyerPushAUtilisateur(
+      ouvrierId,
+      PUSH_MESSAGES.RECAP_DISPONIBLE[ouvrier.langue]
+    ).catch(() => {});
+  }
   return { ok: true };
 }
 

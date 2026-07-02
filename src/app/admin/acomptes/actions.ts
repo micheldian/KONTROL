@@ -8,6 +8,8 @@ import { requireAdmin } from '@/lib/session';
 import { audit } from '@/lib/audit';
 import { verifieDepassementAcompte } from '@/lib/money';
 import { dateFromYMD } from '@/lib/dates';
+import { envoyerPushAUtilisateur } from '@/lib/push';
+import { PUSH_MESSAGES } from '@/lib/push-messages';
 
 const acompteSchema = z.object({
   ouvrierId: z.string().min(1),
@@ -100,6 +102,10 @@ export async function traiterDemande(formData: FormData) {
       entite: 'Acompte',
       entiteId: demande.id
     });
+    await envoyerPushAUtilisateur(
+      demande.userId,
+      PUSH_MESSAGES.ACOMPTE_REFUSE[demande.user.langue]
+    ).catch(() => {});
   } else {
     const [annee, mois] = [
       demande.date.getUTCFullYear(),
@@ -135,6 +141,10 @@ export async function traiterDemande(formData: FormData) {
       entiteId: demande.id,
       apres: { depassement: controle.depasse }
     });
+    await envoyerPushAUtilisateur(
+      demande.userId,
+      PUSH_MESSAGES.ACOMPTE_APPROUVE[demande.user.langue]
+    ).catch(() => {});
   }
   revalidatePath('/admin/acomptes');
   redirect('/admin/acomptes');

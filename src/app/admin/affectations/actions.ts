@@ -7,6 +7,22 @@ import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/session';
 import { audit } from '@/lib/audit';
 import { dateFromYMD, addDays } from '@/lib/dates';
+import { envoyerPushAUtilisateur } from '@/lib/push';
+import { PUSH_MESSAGES } from '@/lib/push-messages';
+
+/** Push « affectation publiée » à chaque ouvrier, dans sa langue (best effort). */
+async function pushAffectationPubliee(affectationIds: string[]) {
+  const liens = await prisma.affectationOuvrier.findMany({
+    where: { affectationId: { in: affectationIds } },
+    include: { user: { select: { id: true, langue: true } } },
+    distinct: ['userId']
+  });
+  await Promise.allSettled(
+    liens.map((l) =>
+      envoyerPushAUtilisateur(l.user.id, PUSH_MESSAGES.AFFECTATION_PUBLIEE[l.user.langue])
+    )
+  );
+}
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -88,6 +104,8 @@ export async function createAffectation(formData: FormData) {
     apres: { ...parsed, ouvrierIds }
   });
 
+  if (affectation.publieAt) await pushAffectationPubliee([affectation.id]);
+
   revalidatePath('/admin/affectations');
   redirect(`/admin/affectations?date=${parsed.date}`);
 }
@@ -121,14 +139,19 @@ export async function deleteAffectation(formData: FormData) {
 export async function publierJour(formData: FormData) {
   const user = await requireAdmin();
   const date = formData.get('date') as string;
-  await prisma.affectation.updateMany({
+  const aPublier = await prisma.affectation.findMany({
     where: {
       organisationId: user.organisationId,
       date: dateFromYMD(date),
       publieAt: null
     },
+    select: { id: true }
+  });
+  await prisma.affectation.updateMany({
+    where: { id: { in: aPublier.map((a) => a.id) } },
     data: { publieAt: new Date() }
   });
+  await pushAffectationPubliee(aPublier.map((a) => a.id));
   await audit({
     organisationId: user.organisationId,
     userId: user.userId,

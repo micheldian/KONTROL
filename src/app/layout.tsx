@@ -18,7 +18,16 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Krontrol',
   description: 'Gestion de main-d’œuvre agricole saisonnière',
-  manifest: '/manifest.webmanifest'
+  manifest: '/manifest.webmanifest',
+  icons: {
+    icon: '/icons/icon-192.png',
+    apple: '/icons/apple-touch-icon.png'
+  },
+  appleWebApp: {
+    capable: true,
+    title: 'Krontrol',
+    statusBarStyle: 'black-translucent'
+  }
 };
 
 export const viewport: Viewport = {

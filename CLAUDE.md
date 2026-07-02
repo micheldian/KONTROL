@@ -74,7 +74,13 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       Crons Vercel (vercel.json, Authorization: Bearer CRON_SECRET) : /api/cron/
       loges-sans-affectation (7h Paris ≈ 5h UTC) et rappel-heures (19h ≈ 17h UTC — push PWA
       + Telegram, simulation si vide). lib/push.ts (web-push, no-op si clés VAPID vides).
-- [ ] Phase 12 — PWA + push + polish + sécurité
+- [x] **Phase 12 — PWA + push + paramètres + sécurité** : manifest + icônes (192/512 +
+      maskable + apple), service worker (push + notificationclick), abonnement push
+      automatique côté portail (silencieux si VAPID vide). Push branchés : affectation
+      publiée, acompte approuvé/refusé, récap dispo, rappel 19h. Page Paramètres (ADMIN) :
+      tarif de base, règle départ logement, token Telegram, clé Pennylane, modèles de
+      messages 3×3, tags de compétences, comptes ADMIN/RH. Durcissements : secret webhook
+      Telegram, rate-limiting du login admin (5 échecs → 15 min), en-têtes sécurité.
 - [ ] Phase 13 — Vivier & Recrutement
 
 ## Lancer le projet en local

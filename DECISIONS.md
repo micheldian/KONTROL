@@ -73,3 +73,17 @@ Journal des ambiguïtés rencontrées et des choix faits (règle 4 du run autono
     snapshot dans la même ligne (unicité org+ouvrier+mois), le tout tracé en AuditLog.
 22. **PDF généré à la volée** depuis le snapshot (pas de stockage de fichier) ; pdfUrl pointe
     vers /api/clotures/[id]/pdf. Police DejaVu embarquée pour ă/î/ș/ț roumains.
+
+## Phase 11-12 — Alertes, crons, PWA, sécurité
+
+23. **Crons Vercel en UTC** : 5h00 UTC (≈ 7h Paris l'été) et 17h00 UTC (≈ 19h l'été).
+    Vercel ne gère pas les fuseaux ; en hiver le rappel part à 18h/6h locales — compromis
+    assumé, ajustable dans vercel.json.
+24. **Rappel 19h** : push PWA + message Telegram journalisé (SIMULE sans token). L'alerte
+    « logés sans affectation » vit sur le dashboard, l'endpoint cron renvoie le détail JSON.
+25. **Sécurité ajoutée hors spec explicite** : login admin rate-limité comme le PIN (mêmes
+    champs), secret webhook Telegram optionnel (TELEGRAM_WEBHOOK_SECRET), en-têtes
+    X-Frame-Options/nosniff/Referrer-Policy, CRON_SECRET sur les crons, PDF accessible
+    uniquement à l'ADMIN/RH de l'organisation ou à l'ouvrier concerné.
+26. **Abonnement push silencieux** : demandé au premier chargement du portail (après login) ;
+    sans clés VAPID tout est no-op, l'app reste 100 % fonctionnelle.

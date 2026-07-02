@@ -6,6 +6,13 @@ import { normalisePhone } from '@/lib/auth';
 // Association du chat : l'ouvrier envoie /start puis PARTAGE SON CONTACT (bouton Telegram),
 // on associe alors chat_id ↔ téléphone. (Configurer l'URL via setWebhook une fois le token posé.)
 export async function POST(req: Request) {
+  // Anti-usurpation : si TELEGRAM_WEBHOOK_SECRET est défini (recommandé en production,
+  // via setWebhook secret_token), on exige l'en-tête envoyé par Telegram.
+  const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+  if (secret && req.headers.get('x-telegram-bot-api-secret-token') !== secret) {
+    return new NextResponse('Non autorisé', { status: 401 });
+  }
+
   const update = await req.json().catch(() => null);
   const message = update?.message;
   if (!message) return NextResponse.json({ ok: true });

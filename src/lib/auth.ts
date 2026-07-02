@@ -38,8 +38,32 @@ export const authOptions: NextAuthOptions = {
         });
         if (!user || !user.motDePasseHash || !user.actif) return null;
         if (user.role !== 'ADMIN' && user.role !== 'RH') return null;
+
+        // Même rate-limiting que le PIN : 5 échecs → blocage 15 min
+        if (user.pinBloqueJusqua && user.pinBloqueJusqua > new Date()) {
+          throw new Error('COMPTE_BLOQUE');
+        }
         const ok = await bcrypt.compare(credentials.password, user.motDePasseHash);
-        if (!ok) return null;
+        if (!ok) {
+          const echecs = user.pinEchecs + 1;
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              pinEchecs: echecs >= PIN_MAX_ECHECS ? 0 : echecs,
+              pinBloqueJusqua:
+                echecs >= PIN_MAX_ECHECS
+                  ? new Date(Date.now() + PIN_BLOCAGE_MINUTES * 60 * 1000)
+                  : null
+            }
+          });
+          return null;
+        }
+        if (user.pinEchecs > 0 || user.pinBloqueJusqua) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { pinEchecs: 0, pinBloqueJusqua: null }
+          });
+        }
         return {
           id: user.id,
           name: `${user.prenom} ${user.nom}`,
