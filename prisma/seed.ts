@@ -239,6 +239,56 @@ async function main() {
     }
   });
 
+  // Affectations de démo pour aujourd'hui (publiées)
+  const aujourdhui = new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }) + 'T00:00:00Z');
+  const andrei = await prisma.user.findUnique({ where: { telephone: '+40733333333' } });
+
+  const aff1 = await prisma.affectation.upsert({
+    where: { id: 'aff-demo-schmitt' },
+    update: { date: aujourdhui },
+    create: {
+      id: 'aff-demo-schmitt',
+      organisationId: org.id,
+      date: aujourdhui,
+      missionId: missionSchmitt.id,
+      parcelleId: 'parcelle-schmitt-est',
+      heureDebut: '07:30',
+      heureFinPrevue: '11:00',
+      pauseMinutesPrevue: 0,
+      chefEquipeId: chef.id,
+      instructions: 'Relevage parcelle Est. Apporter sécateurs.',
+      publieAt: new Date()
+    }
+  });
+  const aff2 = await prisma.affectation.upsert({
+    where: { id: 'aff-demo-muller' },
+    update: { date: aujourdhui },
+    create: {
+      id: 'aff-demo-muller',
+      organisationId: org.id,
+      date: aujourdhui,
+      missionId: missionMuller.id,
+      parcelleId: 'parcelle-muller-florimont',
+      heureDebut: '11:30',
+      heureFinPrevue: '18:00',
+      pauseMinutesPrevue: 30,
+      instructions: 'Pause 30 min à 13h. Eau fournie sur place.',
+      publieAt: new Date()
+    }
+  });
+  for (const [affId, userIds] of [
+    [aff1.id, [chef.id, vasile.id, andrei!.id]],
+    [aff2.id, [vasile.id]]
+  ] as const) {
+    for (const uid of userIds) {
+      await prisma.affectationOuvrier.upsert({
+        where: { affectationId_userId: { affectationId: affId, userId: uid } },
+        update: {},
+        create: { affectationId: affId, userId: uid }
+      });
+    }
+  }
+
   console.log('Seed OK — admin@pickajob.fr / admin123 · ouvrier +40722222222 PIN 1234');
 }
 

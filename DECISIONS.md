@@ -34,3 +34,22 @@ Journal des ambiguïtés rencontrées et des choix faits (règle 4 du run autono
 11. **`StatutEnvoi`** enum ajouté sur EnvoiMessage (ENVOYE, SIMULE, ECHEC, LIEN_GENERE) : la spec
     demande un statut sans le détailler ; SIMULE couvre le mode simulation (token vide),
     LIEN_GENERE couvre les liens wa.me (pas d'envoi serveur en niveau 1).
+
+## Phase 2 — CRUD
+
+12. **Pas de suppression d'ouvrier** : passage en INACTIF (l'historique doit être conservé,
+    règle 14). Suppressions bloquées quand des données liées existent (client avec missions,
+    logement avec séjours, mission avec heures/affectations/factures).
+13. **Documents ouvrier (contrat, pièce d'identité)** : pas de stockage de fichiers dans ce
+    livrable (nécessite un bucket S3/Vercel Blob) — à brancher plus tard ; champ notes internes
+    disponible.
+
+## Phase 3 — Affectations
+
+14. **Multi-jours = duplication.** La création d'affectation porte sur un jour ; la
+    planification multi-jours passe par « Dupliquer hier » (ou en re-créant), ce qui couvre le
+    besoin réel (recomposition quotidienne des équipes) sans complexifier le formulaire.
+15. **« Dupliquer hier » copie en brouillon** (non publié, confirmations remises à zéro) :
+    l'admin contrôle puis publie — cohérent avec « envoyées le soir ».
+16. **Une affectation = une équipe du jour** (liste d'ouvriers + chef optionnel parmi eux).
+    Le chef d'équipe doit être coché dans la liste, sinon il est ignoré (contrôle serveur).

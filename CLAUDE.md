@@ -15,7 +15,12 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       hashé, déblocage rate-limit, taux individuel, statuts ACTIF/INACTIF/VIVIER),
       Logements (capacité, tarif/jour, occupation du jour). Server actions + zod + audit,
       tout scopé organisationId. Placeholders pour les modules des phases suivantes.
-- [ ] Phase 3 — Affectations par créneaux + « Dupliquer hier » + écran « Aujourd'hui »
+- [x] **Phase 3 — Affectations** : vue admin par jour (défaut J+1, navigation ←/→),
+      création par créneau (mission → parcelle → début/fin/pause → instructions), équipes
+      recomposables avec chef du jour, publication (brouillon → publiée), « Dupliquer hier »
+      (copie la veille, non publiée), suivi confirmations temps réel. Écran ouvrier
+      « Aujourd'hui » (+ demain dès publication) : cartes créneau/client/adresse/instructions,
+      bouton Itinéraire (Google Maps), confirmation « J'y serai » (1 tap).
 - [ ] Phase 4 — Telegram + wa.me + templates multilingues
 - [ ] Phase 5 — Saisie des heures (ouvrier + chef) + validation ADMIN/RH
 - [ ] Phase 6 — Acomptes
