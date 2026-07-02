@@ -4,6 +4,8 @@ import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import OuvrierForm from '../ouvrier-form';
 import { debloquerPin } from '../actions';
+import { recapMois } from '@/lib/money';
+import { moisCourant, formatEuros, formatHeures } from '@/lib/dates';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +21,15 @@ export default async function OuvrierPage({ params }: { params: { id: string } }
   if (!ouvrier) notFound();
 
   const pinBloque = ouvrier.pinBloqueJusqua && ouvrier.pinBloqueJusqua > new Date();
+
+  const { mois, annee } = moisCourant();
+  const recap = await recapMois({
+    organisationId: user.organisationId,
+    userId: ouvrier.id,
+    mois,
+    annee,
+    tempsReel: true
+  });
 
   return (
     <div className="max-w-[760px]">
@@ -56,6 +67,41 @@ export default async function OuvrierPage({ params }: { params: { id: string } }
           </form>
         </div>
       )}
+
+      {/* Situation du mois en temps réel (spec 4.3) */}
+      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-5">
+        <div className="card p-3">
+          <div className="label mb-0.5">Heures validées</div>
+          <div className="font-mono text-[18px] font-bold">
+            {formatHeures(recap.totalHeuresValidees)}
+          </div>
+          {recap.heuresEnAttente > 0 && (
+            <div className="text-[11.5px] text-muted">
+              + {formatHeures(recap.heuresEnAttente)} en attente
+            </div>
+          )}
+        </div>
+        <div className="card p-3">
+          <div className="label mb-0.5">Gagné validé</div>
+          <div className="font-mono text-[18px] font-bold">{formatEuros(recap.totalBrut)}</div>
+        </div>
+        <div className="card p-3">
+          <div className="label mb-0.5">Acomptes</div>
+          <div className="font-mono text-[18px] font-bold text-warn">
+            − {formatEuros(recap.totalAcomptes)}
+          </div>
+        </div>
+        <div className="card p-3">
+          <div className="label mb-0.5">Logement + retenues</div>
+          <div className="font-mono text-[18px] font-bold text-warn">
+            − {formatEuros(recap.logement.total + recap.totalRetenues)}
+          </div>
+        </div>
+        <div className="card bg-ink p-3 text-amber">
+          <div className="label mb-0.5 text-[#A9B5AE]">Net ce mois</div>
+          <div className="font-mono text-[18px] font-bold">{formatEuros(recap.net)}</div>
+        </div>
+      </div>
 
       <OuvrierForm ouvrier={ouvrier} />
 

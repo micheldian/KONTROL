@@ -49,7 +49,12 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       Retenues : lignes libres (libellé/montant/date/note) par ouvrier, vue mensuelle,
       suppression. Le décompte logement (indépendant des jours travaillés) est déjà branché
       dans lib/money.ts.
-- [ ] Phase 8 — « Mon argent »
+- [x] **Phase 8 — « Mon argent »** : ticket de caisse temps réel (style démo, mono +
+      pointillés + bloc net encre/ambre) — heures validées × taux (groupées par taux),
+      ligne indicative « en attente (non comptées) », acomptes datés, logement (jours ×
+      tarif + séjours), retenues libellées, NET À RECEVOIR. Demande d'acompte intégrée,
+      historique des mois clôturés (PDF, phase 9). Bloc situation temps réel ajouté à la
+      fiche ouvrier admin (spec 4.3).
 - [ ] Phase 9 — Clôture mensuelle + PDF bilingue + export
 - [ ] Phase 10 — Pennylane
 - [ ] Phase 11 — Dashboard + alertes + crons
