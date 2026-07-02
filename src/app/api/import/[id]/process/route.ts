@@ -70,36 +70,48 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   let parcellesIgnorees = 0;
   const erreurs: Erreur[] = [];
 
-  // Caches du lot : clients par nom normalisé, INSEE par nom de commune
-  const cacheClients = new Map<string, string>();
+  // Caches du lot (en promesses : les lignes d'un même client traitées en
+  // parallèle partagent la même résolution — pas de double création)
+  const cacheClients = new Map<string, Promise<string>>();
   const cacheInsee = new Map<string, string>();
 
-  const resoudreClient = async (l: Ligne): Promise<string> => {
+  const resoudreClient = (l: Ligne): Promise<string> => {
     const nom = texte(l.client_nom);
-    if (!nom) throw new Error('client_nom manquant');
+    if (!nom) return Promise.reject(new Error('client_nom manquant'));
     const cle = nom.toLowerCase().replace(/\s+/g, ' ');
-    const enCache = cacheClients.get(cle);
-    if (enCache) return enCache;
-
-    const existant = await prisma.client.findFirst({
-      where: { organisationId: user.organisationId, nom: { equals: nom, mode: 'insensitive' } }
-    });
-    if (existant) {
-      cacheClients.set(cle, existant.id);
-      return existant.id;
+    let promesse = cacheClients.get(cle);
+    if (!promesse) {
+      promesse = (async () => {
+        const existant = await prisma.client.findFirst({
+          where: { organisationId: user.organisationId, nom: { equals: nom, mode: 'insensitive' } }
+        });
+        if (existant) return existant.id;
+        try {
+          const cree = await prisma.client.create({
+            data: {
+              organisationId: user.organisationId,
+              nom,
+              contact: texte(l.client_contact) || null,
+              telephone: texte(l.client_telephone) || null,
+              email: texte(l.client_email) || null
+            }
+          });
+          clientsCrees++;
+          return cree.id;
+        } catch (e) {
+          // Conflit unique (créé entre-temps par un autre lot) → relire
+          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+            const gagnant = await prisma.client.findFirst({
+              where: { organisationId: user.organisationId, nom: { equals: nom, mode: 'insensitive' } }
+            });
+            if (gagnant) return gagnant.id;
+          }
+          throw e;
+        }
+      })();
+      cacheClients.set(cle, promesse);
     }
-    const cree = await prisma.client.create({
-      data: {
-        organisationId: user.organisationId,
-        nom,
-        contact: texte(l.client_contact) || null,
-        telephone: texte(l.client_telephone) || null,
-        email: texte(l.client_email) || null
-      }
-    });
-    clientsCrees++;
-    cacheClients.set(cle, cree.id);
-    return cree.id;
+    return promesse;
   };
 
   const resoudreInsee = async (l: Ligne): Promise<string | null> => {

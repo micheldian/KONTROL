@@ -74,7 +74,7 @@ export async function deleteClient(formData: FormData) {
   const id = formData.get('id') as string;
   const client = await prisma.client.findFirst({
     where: { id, organisationId: user.organisationId },
-    include: { _count: { select: { missions: true, parcelles: true } } }
+    include: { _count: { select: { missions: true, parcelles: true, users: true } } }
   });
   if (!client) throw new Error('Client introuvable');
   if (client._count.missions > 0) {
@@ -82,6 +82,9 @@ export async function deleteClient(formData: FormData) {
   }
   if (client._count.parcelles > 0) {
     throw new Error('Impossible : ce client a des parcelles (supprimez-les d’abord).');
+  }
+  if (client._count.users > 0) {
+    throw new Error('Impossible : des comptes portail sont rattachés à ce client.');
   }
   await prisma.client.delete({ where: { id } });
   await audit({
