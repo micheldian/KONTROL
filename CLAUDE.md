@@ -21,7 +21,12 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       (copie la veille, non publiée), suivi confirmations temps réel. Écran ouvrier
       « Aujourd'hui » (+ demain dès publication) : cartes créneau/client/adresse/instructions,
       bouton Itinéraire (Google Maps), confirmation « J'y serai » (1 tap).
-- [ ] Phase 4 — Telegram + wa.me + templates multilingues
+- [x] **Phase 4 — Messagerie** : interface `MessageChannel` (lib/messaging) — Telegram Bot API
+      (token vide → statut SIMULE), WhatsApp niveau 1 en liens wa.me pré-remplis (LIEN_GENERE),
+      structure prête pour Cloud API niveau 2. Templates FR/RO/ES ({prenom}, {client}, {date}…)
+      surchargeables via parametres.templates. Page « ✉ Messages » par affectation : envoi
+      Telegram à chacun ou au chef seul, boutons wa.me par destinataire, journal EnvoiMessage.
+      Webhook /api/telegram/webhook : association chat ↔ téléphone par partage de contact.
 - [ ] Phase 5 — Saisie des heures (ouvrier + chef) + validation ADMIN/RH
 - [ ] Phase 6 — Acomptes
 - [ ] Phase 7 — Logements (séjours) + Retenues

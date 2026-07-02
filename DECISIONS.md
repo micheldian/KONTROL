@@ -53,3 +53,13 @@ Journal des ambiguïtés rencontrées et des choix faits (règle 4 du run autono
     l'admin contrôle puis publie — cohérent avec « envoyées le soir ».
 16. **Une affectation = une équipe du jour** (liste d'ouvriers + chef optionnel parmi eux).
     Le chef d'équipe doit être coché dans la liste, sinon il est ignoré (contrôle serveur).
+
+## Phase 4 — Messagerie
+
+17. **Association Telegram par partage de contact** : l'ouvrier fait /start puis partage son
+    contact (bouton natif Telegram) → chat_id lié au téléphone. Plus fiable que la saisie
+    manuelle d'un code pour un public peu technophile.
+18. **wa.me niveau 1 = clic admin, journalisé LIEN_GENERE** au moment de l'ouverture du lien
+    (on ne peut pas savoir si le message a réellement été envoyé depuis WhatsApp).
+19. **Token Telegram** : parametres.telegramBotToken (par organisation) prioritaire, sinon
+    TELEGRAM_BOT_TOKEN (env). Vide → SIMULE, tout le flux reste testable.

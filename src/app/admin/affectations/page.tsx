@@ -132,6 +132,9 @@ export default async function AffectationsPage({
               ) : (
                 <span className="badge badge-amber">Brouillon</span>
               )}
+              <Link href={`/admin/affectations/${a.id}/messages`} className="btn-sm btn-outline">
+                ✉ Messages
+              </Link>
               <form action={deleteAffectation}>
                 <input type="hidden" name="id" value={a.id} />
                 <input type="hidden" name="date" value={date} />
