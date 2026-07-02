@@ -36,7 +36,13 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       ouvrier + « tout l'en-attente »), validation ligne/masse, correction tracée
       (CORRIGE + audit avant/après), saisie manuelle directement validée. tauxApplique
       figé à la saisie (règle 2).
-- [ ] Phase 6 — Acomptes
+- [x] **Phase 6 — Acomptes** : lib/money.ts (recap mensuel complet : heures validées × taux,
+      acomptes déduits APPROUVE/VERSE, logement, retenues, net — sert aussi aux phases 8/9).
+      Admin : demandes du portail à approuver (mode) / refuser, enregistrement direct
+      (espèces/virement), APPROUVE → « Marquer versé », historique par mois. Garde-fou
+      règle 5 : blocage soft si Σ acomptes > gagné validé du mois, case « Forcer » +
+      audit `.force`. Portail : « Demander un acompte » (montant + motif, 1 demande en
+      attente max), statut visible.
 - [ ] Phase 7 — Logements (séjours) + Retenues
 - [ ] Phase 8 — « Mon argent »
 - [ ] Phase 9 — Clôture mensuelle + PDF bilingue + export
