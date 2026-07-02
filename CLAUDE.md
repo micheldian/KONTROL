@@ -10,7 +10,11 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       (schéma complet section 5), NextAuth (email/mdp ADMIN-RH + téléphone/PIN ouvriers,
       rate-limiting 5 échecs → 15 min), i18n FR/RO/ES (next-intl, cookie), thème Krontrol
       (démo HTML), seed de dev.
-- [ ] Phase 2 — CRUD back-office (Ouvriers, Clients, Missions/Parcelles, Logements)
+- [x] **Phase 2 — CRUD back-office** : Clients, Missions + Parcelles (gestion inline sur la
+      fiche mission, total d'heures validées temps réel), Ouvriers (recherche, PIN 4 chiffres
+      hashé, déblocage rate-limit, taux individuel, statuts ACTIF/INACTIF/VIVIER),
+      Logements (capacité, tarif/jour, occupation du jour). Server actions + zod + audit,
+      tout scopé organisationId. Placeholders pour les modules des phases suivantes.
 - [ ] Phase 3 — Affectations par créneaux + « Dupliquer hier » + écran « Aujourd'hui »
 - [ ] Phase 4 — Telegram + wa.me + templates multilingues
 - [ ] Phase 5 — Saisie des heures (ouvrier + chef) + validation ADMIN/RH
