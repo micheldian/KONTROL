@@ -27,7 +27,15 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       surchargeables via parametres.templates. Page « ✉ Messages » par affectation : envoi
       Telegram à chacun ou au chef seul, boutons wa.me par destinataire, journal EnvoiMessage.
       Webhook /api/telegram/webhook : association chat ↔ téléphone par partage de contact.
-- [ ] Phase 5 — Saisie des heures (ouvrier + chef) + validation ADMIN/RH
+- [x] **Phase 5 — Heures** : « Mes heures » ouvrier pré-rempli depuis les affectations
+      publiées (1 tap si conforme), ajustement début/fin/pause (stepper 15 min), ajout de
+      créneau non planifié, total du jour, anti-chevauchement (lib/heures.ts), statuts
+      visibles (en attente/validé/corrigé), historique du mois. Chef d'équipe : saisie
+      groupée de son équipe du jour (« appliquer à tous » + ajustement individuel, règle 7
+      contrôlée serveur). Admin : tableau de validation filtrable (jour/statut/mission/
+      ouvrier + « tout l'en-attente »), validation ligne/masse, correction tracée
+      (CORRIGE + audit avant/après), saisie manuelle directement validée. tauxApplique
+      figé à la saisie (règle 2).
 - [ ] Phase 6 — Acomptes
 - [ ] Phase 7 — Logements (séjours) + Retenues
 - [ ] Phase 8 — « Mon argent »
