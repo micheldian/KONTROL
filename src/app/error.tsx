@@ -20,7 +20,9 @@ export default function ErrorPage({
         ↻ Recharger la page
       </button>
       <pre className="mt-7 whitespace-pre-wrap break-words rounded-xl bg-[#EFEAD9] p-3 text-left text-[11.5px] text-muted">
-        {String(error?.stack ?? error?.message ?? error).slice(0, 900)}
+        {String(error?.message ?? error)}
+        {'\n'}
+        {String(error?.stack ?? '').slice(0, 700)}
         {error?.digest ? `\ndigest: ${error.digest}` : ''}
         {typeof navigator !== 'undefined' ? `\n\nUA: ${navigator.userAgent}` : ''}
       </pre>
