@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import ErreurBanniere from '@/components/admin/ErreurBanniere';
 import { remettreAuVivier } from '../vivier/actions';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
@@ -10,7 +11,7 @@ const STATUTS_OUVRIERS = ['ACTIF', 'INACTIF'] as const;
 export default async function OuvriersPage({
   searchParams
 }: {
-  searchParams: { q?: string; statut?: string };
+  searchParams: { q?: string; statut?: string; erreur?: string };
 }) {
   const user = await requireAdmin();
   const q = searchParams.q?.trim() ?? '';
@@ -51,6 +52,7 @@ export default async function OuvriersPage({
             {tarifBase.toFixed(2)} €/h
           </span>
         </h1>
+      <ErreurBanniere erreur={searchParams.erreur} />
         <div className="flex items-center gap-2">
           <form className="flex gap-2">
             <input
@@ -118,6 +120,7 @@ export default async function OuvriersPage({
                     {o.statutProfil === 'ACTIF' && (
                       <form action={remettreAuVivier}>
                         <input type="hidden" name="id" value={o.id} />
+                        <input type="hidden" name="retour" value="/admin/ouvriers" />
                         <button
                           className="btn-sm btn-outline"
                           title="Fin de mission : retour au vivier (historique et PIN conservés)"

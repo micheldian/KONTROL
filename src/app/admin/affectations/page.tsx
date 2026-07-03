@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import ErreurBanniere from '@/components/admin/ErreurBanniere';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { todayParis, addDays, dateFromYMD, formatJour } from '@/lib/dates';
@@ -14,7 +15,7 @@ export const dynamic = 'force-dynamic';
 export default async function AffectationsPage({
   searchParams
 }: {
-  searchParams: { date?: string; info?: string; parcelles?: string };
+  searchParams: { date?: string; info?: string; parcelles?: string; erreur?: string };
 }) {
   const user = await requireAdmin();
   const today = todayParis();
@@ -93,6 +94,8 @@ export default async function AffectationsPage({
           </Link>
         </div>
       </div>
+
+      <ErreurBanniere erreur={searchParams.erreur} />
 
       <div className="mb-4 flex flex-wrap gap-2">
         <form action={dupliquerHier}>

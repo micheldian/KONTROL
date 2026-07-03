@@ -42,6 +42,20 @@ const affectationSchema = z.object({
 });
 
 export async function createAffectation(formData: FormData) {
+  const date = (formData.get('date') as string) || '';
+  let erreur: string | null = null;
+  try {
+    await createAffectationCoeur(formData);
+  } catch (e) {
+    // NEXT_REDIRECT = succès (redirect final du coeur) — le laisser passer
+    if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e;
+    if ((e as { digest?: string })?.digest?.toString().startsWith('NEXT_REDIRECT')) throw e;
+    erreur = e instanceof Error ? e.message : 'Erreur inattendue';
+  }
+  if (erreur) redirect(`/admin/affectations?date=${date}&erreur=${encodeURIComponent(erreur)}`);
+}
+
+async function createAffectationCoeur(formData: FormData) {
   const user = await requireAdmin();
   const ouvrierIds = formData.getAll('ouvrierIds').map(String).filter(Boolean);
   const parcelleIds = formData.getAll('parcelleIds').map(String).filter(Boolean);
@@ -118,6 +132,18 @@ export async function createAffectation(formData: FormData) {
 }
 
 export async function deleteAffectation(formData: FormData) {
+  const date = (formData.get('date') as string) || '';
+  let erreur: string | null = null;
+  try {
+    await deleteAffectationCoeur(formData);
+  } catch (e) {
+    if ((e as { digest?: string })?.digest?.toString().startsWith('NEXT_REDIRECT')) throw e;
+    erreur = e instanceof Error ? e.message : 'Erreur inattendue';
+  }
+  if (erreur) redirect(`/admin/affectations?date=${date}&erreur=${encodeURIComponent(erreur)}`);
+}
+
+async function deleteAffectationCoeur(formData: FormData) {
   const user = await requireAdmin();
   const id = formData.get('id') as string;
   const date = formData.get('date') as string;

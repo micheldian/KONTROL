@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import SelectionContact from './selection-contact';
+import ErreurBanniere from '@/components/admin/ErreurBanniere';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,7 @@ export default async function VivierPage({
     noteMin?: string;
     tags?: string | string[];
     tri?: string;
+    erreur?: string;
   };
 }) {
   const user = await requireAdmin();
@@ -110,6 +112,7 @@ export default async function VivierPage({
           vivier, actifs, anciens, liste noire)
         </span>
       </h1>
+      <ErreurBanniere erreur={searchParams.erreur} />
 
       {/* Recherche + filtres combinables */}
       <form className="card mb-4 flex flex-wrap items-end gap-3 p-4">

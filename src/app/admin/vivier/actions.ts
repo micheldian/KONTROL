@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
@@ -86,7 +87,7 @@ export async function majNotesInternes(formData: FormData) {
  * Réactivation en un clic : VIVIER/INACTIF → ACTIF, historique conservé (règle 14).
  * PIN : conservé s'il existe ; sinon un PIN à définir sur la fiche ouvrier.
  */
-export async function reactiverProfil(formData: FormData) {
+async function reactiverCoeur(formData: FormData) {
   const user = await requireAdmin();
   const id = formData.get('id') as string;
   const pin = ((formData.get('pin') as string) || '').trim();
@@ -132,7 +133,7 @@ export async function reactiverProfil(formData: FormData) {
  * pour une future réactivation, accès portail coupé). Bloqué si l'ouvrier a
  * encore des affectations aujourd'hui ou à venir.
  */
-export async function remettreAuVivier(formData: FormData) {
+async function remettreAuVivierCoeur(formData: FormData) {
   const user = await requireAdmin();
   const id = formData.get('id') as string;
 
@@ -171,13 +172,44 @@ export async function remettreAuVivier(formData: FormData) {
   revalidatePath('/admin/ouvriers');
 }
 
+
+/** Message d'erreur lisible : catch → redirect ?erreur= (les throw sont masqués en prod). */
+function messageErreur(e: unknown): string {
+  return e instanceof Error ? e.message : 'Erreur inattendue';
+}
+
+/** Form action fiche/listes : VIVIER/INACTIF → ACTIF, erreurs en bannière. */
+export async function reactiverProfil(formData: FormData) {
+  const id = formData.get('id') as string;
+  let erreur: string | null = null;
+  try {
+    await reactiverCoeur(formData);
+  } catch (e) {
+    erreur = messageErreur(e);
+  }
+  if (erreur) redirect(`/admin/vivier/${id}?erreur=${encodeURIComponent(erreur)}`);
+}
+
+/** Form action fiche/liste ouvriers : ACTIF → VIVIER, erreurs en bannière. */
+export async function remettreAuVivier(formData: FormData) {
+  const id = formData.get('id') as string;
+  const retour = (formData.get('retour') as string) || `/admin/vivier/${id}`;
+  let erreur: string | null = null;
+  try {
+    await remettreAuVivierCoeur(formData);
+  } catch (e) {
+    erreur = messageErreur(e);
+  }
+  if (erreur) redirect(`${retour}?erreur=${encodeURIComponent(erreur)}`);
+}
+
 // Variantes pour appel depuis les listes (client components) : en production,
 // Next masque les messages des actions qui « throw » — ici on RETOURNE l'erreur.
 export async function reactiverProfilDepuisListe(
   formData: FormData
 ): Promise<{ ok: boolean; erreur?: string }> {
   try {
-    await reactiverProfil(formData);
+    await reactiverCoeur(formData);
     return { ok: true };
   } catch (e) {
     return { ok: false, erreur: e instanceof Error ? e.message : 'Erreur' };
@@ -188,7 +220,7 @@ export async function remettreAuVivierDepuisListe(
   formData: FormData
 ): Promise<{ ok: boolean; erreur?: string }> {
   try {
-    await remettreAuVivier(formData);
+    await remettreAuVivierCoeur(formData);
     return { ok: true };
   } catch (e) {
     return { ok: false, erreur: e instanceof Error ? e.message : 'Erreur' };
