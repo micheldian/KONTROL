@@ -374,9 +374,9 @@ export default function CarteAdmin({
 
   return (
     // Mobile : carte en haut, panneau en dessous. Desktop (md+) : panneau à gauche, carte plein écran.
-    <div className="flex h-[calc(100dvh-150px)] flex-col md:h-[calc(100dvh-110px)] md:flex-row">
+    <div className="flex flex-col md:h-[calc(100dvh-110px)] md:flex-row">
       {/* Panneau latéral */}
-      <div className="order-2 flex min-h-0 flex-1 flex-col overflow-hidden border-t-[1.5px] border-line bg-white md:order-1 md:w-[340px] md:flex-none md:border-r-[1.5px] md:border-t-0">
+      <div className="order-2 flex flex-col border-t-[1.5px] border-line bg-white md:order-1 md:min-h-0 md:w-[340px] md:flex-none md:overflow-hidden md:border-r-[1.5px] md:border-t-0">
         <div className="space-y-2 border-b border-line p-3">
           <div className="flex gap-2">
             <select value={fClient} onChange={(e) => setFClient(e.target.value)} className="input flex-1 py-1.5 text-[13px]">
@@ -406,7 +406,7 @@ export default function CarteAdmin({
           )}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="max-h-[32dvh] overflow-y-auto md:max-h-none md:min-h-0 md:flex-1">
           {filtrees.map((p) => (
             <div
               key={p.id}
