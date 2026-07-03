@@ -53,8 +53,9 @@ export default function GlobalError({
               color: '#5C6660'
             }}
           >
-            {String(error?.message ?? error)}
+            {String(error?.stack ?? error?.message ?? error).slice(0, 900)}
             {error?.digest ? `\ndigest: ${error.digest}` : ''}
+            {typeof navigator !== 'undefined' ? `\n\nUA: ${navigator.userAgent}` : ''}
           </pre>
         </div>
       </body>

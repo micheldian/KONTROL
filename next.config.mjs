@@ -4,6 +4,8 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Stack traces lisibles en production (diagnostic navigateur)
+  productionBrowserSourceMaps: true,
   experimental: {
     // Embarque les polices du PDF dans la fonction serverless (Vercel)
     outputFileTracingIncludes: {
