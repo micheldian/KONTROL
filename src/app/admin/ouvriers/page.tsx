@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { remettreAuVivier } from '../vivier/actions';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 
@@ -113,9 +114,22 @@ export default async function OuvriersPage({
                   )}
                 </td>
                 <td className="text-right">
-                  <Link href={`/admin/ouvriers/${o.id}`} className="btn-sm btn-outline">
-                    Fiche
-                  </Link>
+                  <div className="flex items-center justify-end gap-1.5">
+                    {o.statutProfil === 'ACTIF' && (
+                      <form action={remettreAuVivier}>
+                        <input type="hidden" name="id" value={o.id} />
+                        <button
+                          className="btn-sm btn-outline"
+                          title="Fin de mission : retour au vivier (historique et PIN conservés)"
+                        >
+                          ↩ Vivier
+                        </button>
+                      </form>
+                    )}
+                    <Link href={`/admin/ouvriers/${o.id}`} className="btn-sm btn-outline">
+                      Fiche
+                    </Link>
+                  </div>
                 </td>
               </tr>
             ))}

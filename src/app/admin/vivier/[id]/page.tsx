@@ -9,6 +9,7 @@ import {
   majTagsProfil,
   majNotesInternes,
   reactiverProfil,
+  remettreAuVivier,
   mettreListeNoire,
   sortirListeNoire
 } from '../actions';
@@ -87,6 +88,17 @@ export default async function ProfilVivierPage({
               )}
               <button className="btn-sm btn-green" title="L'historique complet est conservé">
                 ⚡ Réactiver → ACTIF
+              </button>
+            </form>
+          )}
+          {profil.statutProfil === 'ACTIF' && (
+            <form action={remettreAuVivier}>
+              <input type="hidden" name="id" value={profil.id} />
+              <button
+                className="btn-sm btn-outline"
+                title="Fin de mission : retour au vivier (historique et PIN conservés, accès portail coupé)"
+              >
+                ↩ Remettre au vivier
               </button>
             </form>
           )}

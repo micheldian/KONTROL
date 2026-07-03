@@ -196,7 +196,8 @@ export default async function VivierPage({
           tags: p.competences.map((c) => c.tag.libelle),
           derniereSaison: p.derniereSaison,
           telegramConnecte: !!p.telegramChatId,
-          listeNoire: p.statutProfil === 'LISTE_NOIRE'
+          listeNoire: p.statutProfil === 'LISTE_NOIRE',
+          aPin: !!p.pinHash
         }))}
         lienTriNote={lien({ tri: 'note' })}
         lienTriNom={lien({ tri: 'nom' })}

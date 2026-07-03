@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin, requireAdminStrict } from '@/lib/session';
 import { audit } from '@/lib/audit';
+import { todayParis, dateFromYMD } from '@/lib/dates';
 import {
   TelegramChannel,
   WhatsAppLinkChannel,
@@ -124,6 +125,74 @@ export async function reactiverProfil(formData: FormData) {
   });
   revalidatePath('/admin/vivier');
   revalidatePath(`/admin/vivier/${id}`);
+}
+
+/**
+ * Fin de mission : ACTIF → retour au VIVIER (historique conservé, PIN gardé
+ * pour une future réactivation, accès portail coupé). Bloqué si l'ouvrier a
+ * encore des affectations aujourd'hui ou à venir.
+ */
+export async function remettreAuVivier(formData: FormData) {
+  const user = await requireAdmin();
+  const id = formData.get('id') as string;
+
+  const profil = await prisma.user.findFirst({
+    where: { id, organisationId: user.organisationId, statutProfil: 'ACTIF' }
+  });
+  if (!profil) throw new Error('Profil introuvable ou déjà hors des actifs');
+
+  const affectationsAVenir = await prisma.affectationOuvrier.count({
+    where: {
+      userId: id,
+      affectation: { organisationId: user.organisationId, date: { gte: dateFromYMD(todayParis()) } }
+    }
+  });
+  if (affectationsAVenir > 0) {
+    throw new Error(
+      `Impossible : ${profil.prenom} ${profil.nom} a encore ${affectationsAVenir} affectation(s) aujourd’hui ou à venir — retirez-le d’abord du planning.`
+    );
+  }
+
+  await prisma.user.update({
+    where: { id },
+    data: { statutProfil: 'VIVIER', actif: false }
+  });
+  await audit({
+    organisationId: user.organisationId,
+    userId: user.userId,
+    action: 'vivier.remettre',
+    entite: 'User',
+    entiteId: id,
+    avant: { statutProfil: 'ACTIF' },
+    apres: { statutProfil: 'VIVIER' }
+  });
+  revalidatePath('/admin/vivier');
+  revalidatePath(`/admin/vivier/${id}`);
+  revalidatePath('/admin/ouvriers');
+}
+
+// Variantes pour appel depuis les listes (client components) : en production,
+// Next masque les messages des actions qui « throw » — ici on RETOURNE l'erreur.
+export async function reactiverProfilDepuisListe(
+  formData: FormData
+): Promise<{ ok: boolean; erreur?: string }> {
+  try {
+    await reactiverProfil(formData);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, erreur: e instanceof Error ? e.message : 'Erreur' };
+  }
+}
+
+export async function remettreAuVivierDepuisListe(
+  formData: FormData
+): Promise<{ ok: boolean; erreur?: string }> {
+  try {
+    await remettreAuVivier(formData);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, erreur: e instanceof Error ? e.message : 'Erreur' };
+  }
 }
 
 /** Mise en liste noire — motif OBLIGATOIRE, date et auteur tracés (règle 12). */
