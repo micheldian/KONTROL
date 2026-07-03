@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapContainer, TileLayer, GeoJSON, Popup, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, Popup, Polygon, useMapEvents, useMap } from 'react-leaflet';
 import type { LatLngBoundsExpression, Map as LeafletMap } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -41,6 +41,7 @@ type Candidate = {
   contenanceM2: number | null;
   geometry: unknown;
   centroide: { lat: number; lng: number } | null;
+  dessinee?: boolean; // Mode C : polygone tracé à la main (pas de référence cadastrale)
 };
 
 const WMTS = (layer: string, format: string) =>
@@ -70,15 +71,15 @@ function surfaceHa(m2: number | null) {
   return m2 ? `${(m2 / 10000).toFixed(2).replace('.', ',')} ha` : '';
 }
 
-/** Remonte les mouvements de carte (chargement par viewport) et les clics (Mode B). */
+/** Remonte les mouvements de carte (chargement par viewport) et les clics (Modes B et C). */
 function EvenementsCarte({
   onViewport,
   onClic,
-  modePointer
+  clicActif
 }: {
   onViewport: (bbox: string) => void;
   onClic: (lat: number, lng: number) => void;
-  modePointer: boolean;
+  clicActif: boolean;
 }) {
   const map = useMapEvents({
     moveend: () => {
@@ -86,7 +87,7 @@ function EvenementsCarte({
       onViewport(`${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`);
     },
     click: (e) => {
-      if (modePointer) onClic(e.latlng.lat, e.latlng.lng);
+      if (clicActif) onClic(e.latlng.lat, e.latlng.lng);
     }
   });
   useEffect(() => {
@@ -126,8 +127,10 @@ export default function CarteAdmin({
   const [fTexte, setFTexte] = useState('');
   const [fStatut, setFStatut] = useState('');
 
-  // Saisie Mode A / Mode B
+  // Saisie Mode A (référence) / Mode B (pointer) / Mode C (dessin à main levée)
   const [modePointer, setModePointer] = useState(false);
+  const [modeDessin, setModeDessin] = useState(false);
+  const [pointsDessin, setPointsDessin] = useState<Array<[number, number]>>([]);
   const [communeQuery, setCommuneQuery] = useState('');
   const [communes, setCommunes] = useState<Array<{ nom: string; code: string; centre?: { lat: number; lng: number } }>>([]);
   const [insee, setInsee] = useState('');
@@ -247,9 +250,46 @@ export default function CarteAdmin({
     );
   };
 
-  const clicModeB = (lat: number, lng: number) => {
+  const clicCarte = (lat: number, lng: number) => {
+    if (modeDessin) {
+      // Mode C : chaque tap pose un sommet du polygone
+      setPointsDessin((pts) => [...pts, [lat, lng]]);
+      return;
+    }
     setModePointer(false);
     void chercherCandidates(`/api/geo/cadastre?lat=${lat}&lng=${lng}`, 'à cet endroit');
+  };
+
+  const terminerDessin = () => {
+    if (pointsDessin.length < 3) {
+      setMessage('Posez au moins 3 points pour former une parcelle.');
+      return;
+    }
+    // GeoJSON : anneau [lng, lat] fermé
+    const ring = pointsDessin.map(([lat, lng]) => [lng, lat]);
+    ring.push(ring[0]);
+    const lats = pointsDessin.map((p) => p[0]);
+    const lngs = pointsDessin.map((p) => p[1]);
+    setChoisie({
+      numero: '',
+      section: '',
+      codeInsee: '',
+      contenanceM2: null,
+      geometry: { type: 'Polygon', coordinates: [ring] },
+      centroide: {
+        lat: lats.reduce((a, b) => a + b, 0) / lats.length,
+        lng: lngs.reduce((a, b) => a + b, 0) / lngs.length
+      },
+      dessinee: true
+    });
+    setModeDessin(false);
+    setMessage('Polygone tracé — choisissez le client puis enregistrez.');
+  };
+
+  const annulerDessin = () => {
+    setModeDessin(false);
+    setPointsDessin([]);
+    setMessage(null);
   };
 
   const enregistrer = async () => {
@@ -263,17 +303,27 @@ export default function CarteAdmin({
       const res = await fetch('/api/parcelles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: saveClientId,
-          codeInsee: choisie.codeInsee,
-          section: choisie.section,
-          numero: choisie.numero,
-          commune: choisie.commune,
-          contenanceM2: choisie.contenanceM2,
-          geometry: choisie.geometry,
-          cepage: saveCepage || undefined,
-          millesime: saveMillesime ? Number(saveMillesime) : undefined
-        })
+        body: JSON.stringify(
+          choisie.dessinee
+            ? {
+                clientId: saveClientId,
+                geometry: choisie.geometry,
+                dessinee: true,
+                cepage: saveCepage || undefined,
+                millesime: saveMillesime ? Number(saveMillesime) : undefined
+              }
+            : {
+                clientId: saveClientId,
+                codeInsee: choisie.codeInsee,
+                section: choisie.section,
+                numero: choisie.numero,
+                commune: choisie.commune,
+                contenanceM2: choisie.contenanceM2,
+                geometry: choisie.geometry,
+                cepage: saveCepage || undefined,
+                millesime: saveMillesime ? Number(saveMillesime) : undefined
+              }
+        )
       });
       const json = (await res.json()) as { error?: string };
       if (!res.ok) {
@@ -282,6 +332,7 @@ export default function CarteAdmin({
         setMessage('✓ Parcelle enregistrée.');
         setCandidates([]);
         setChoisie(null);
+        setPointsDessin([]);
         setSaveCepage('');
         setSaveMillesime('');
         void chargerParcelles();
@@ -417,19 +468,79 @@ export default function CarteAdmin({
           </div>
           <button
             onClick={() => {
-              setModePointer((v) => !v);
-              setMessage(modePointer ? null : 'Cliquez sur la carte pour identifier la parcelle cadastrale.');
+              const actif = !modePointer;
+              setModePointer(actif);
+              setModeDessin(false);
+              if (actif) setCadastreVisible(true); // viser juste : contours cadastraux visibles
+              setMessage(
+                actif
+                  ? 'Zoomez puis touchez la parcelle — les contours cadastraux (orange) vous guident.'
+                  : null
+              );
             }}
             className={`btn-sm w-full ${modePointer ? 'btn-amber' : 'btn-outline'}`}
           >
-            📍 {modePointer ? 'Cliquez sur la carte… (annuler)' : 'Pointer une parcelle sur la carte'}
+            📍 {modePointer ? 'Touchez la carte… (annuler)' : 'Pointer une parcelle sur la carte'}
           </button>
+          {!modeDessin ? (
+            <button
+              onClick={() => {
+                setModeDessin(true);
+                setModePointer(false);
+                setPointsDessin([]);
+                setCandidates([]);
+                setChoisie(null);
+                setCadastreVisible(true);
+                setMessage('Touchez la carte pour poser les sommets de la parcelle, puis « Terminer ».');
+              }}
+              className="btn-sm btn-outline w-full"
+            >
+              ✏️ Dessiner une parcelle à la main
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <button onClick={terminerDessin} className="btn-sm btn-green flex-1" disabled={pointsDessin.length < 3}>
+                ✓ Terminer ({pointsDessin.length} point{pointsDessin.length > 1 ? 's' : ''})
+              </button>
+              {pointsDessin.length > 0 && (
+                <button onClick={() => setPointsDessin((p) => p.slice(0, -1))} className="btn-sm btn-outline">
+                  ⌫
+                </button>
+              )}
+              <button onClick={annulerDessin} className="btn-sm text-warn">
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Plusieurs candidates : liste tapotable (plus fiable au doigt que le polygone) */}
+          {candidates.length > 1 && (
+            <div className="max-h-[120px] space-y-1 overflow-y-auto">
+              {candidates.map((c, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setChoisie(c);
+                    if (c.centroide && mapRef.current) mapRef.current.setView([c.centroide.lat, c.centroide.lng], 18);
+                  }}
+                  className={`block w-full rounded-lg border px-2 py-1.5 text-left text-[12.5px] ${
+                    choisie === c ? 'border-brand bg-[#EFF7F1]' : 'border-line bg-white'
+                  }`}
+                >
+                  {c.commune ?? c.codeInsee} {c.section} {c.numero}
+                  {c.contenanceM2 ? ` — ${surfaceHa(c.contenanceM2)}` : ''}
+                </button>
+              ))}
+            </div>
+          )}
 
           {choisie && (
             <div className="space-y-2 rounded-lg border border-line bg-paper p-2">
               <div className="text-[12.5px]">
                 <b>
-                  {choisie.commune ?? choisie.codeInsee} {choisie.section} {choisie.numero}
+                  {choisie.dessinee
+                    ? '✏️ Parcelle dessinée à la main'
+                    : `${choisie.commune ?? choisie.codeInsee} ${choisie.section} ${choisie.numero}`}
                 </b>
                 {choisie.contenanceM2 ? ` — ${surfaceHa(choisie.contenanceM2)}` : ''}
               </div>
@@ -472,9 +583,17 @@ export default function CarteAdmin({
           </button>
         </div>
 
-        <MapContainer bounds={centreAlsace} className="h-full w-full" style={{ cursor: modePointer ? 'crosshair' : undefined }}>
+        <MapContainer
+          bounds={centreAlsace}
+          className="h-full w-full"
+          style={{ cursor: modePointer || modeDessin ? 'crosshair' : undefined }}
+        >
           <CapteurCarte surCarte={(m) => (mapRef.current = m)} />
-          <EvenementsCarte onViewport={(b) => void chargerParcelles(b)} onClic={clicModeB} modePointer={modePointer} />
+          <EvenementsCarte
+            onViewport={(b) => void chargerParcelles(b)}
+            onClic={clicCarte}
+            clicActif={modePointer || modeDessin}
+          />
           <TileLayer
             key={fond}
             url={FONDS[fond]}
@@ -489,7 +608,8 @@ export default function CarteAdmin({
             .filter((p) => p.geometry)
             .map((p) => (
               <GeoJSON
-                key={`${p.id}-${selection.has(p.id) ? 's' : 'n'}-${p.statut?.statut ?? ''}`}
+                key={`${p.id}-${selection.has(p.id) ? 's' : 'n'}-${p.statut?.statut ?? ''}-${modePointer || modeDessin ? 'off' : 'on'}`}
+                interactive={!(modePointer || modeDessin)}
                 data={{ type: 'Feature', properties: {}, geometry: p.geometry } as never}
                 style={{
                   color: selection.has(p.id) ? '#1D4ED8' : COULEUR_STATUT[p.statut?.statut ?? 'AUCUNE'],
@@ -549,6 +669,21 @@ export default function CarteAdmin({
               eventHandlers={{ click: () => setChoisie(c) }}
             />
           ))}
+
+          {/* Mode C : aperçu du polygone en cours de dessin */}
+          {pointsDessin.length > 0 && (
+            <Polygon
+              positions={pointsDessin}
+              pathOptions={{
+                color: '#B45309',
+                weight: 3,
+                dashArray: '4 4',
+                fillColor: '#F59E0B',
+                fillOpacity: 0.2
+              }}
+              interactive={false}
+            />
+          )}
         </MapContainer>
       </div>
     </div>

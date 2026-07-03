@@ -6,8 +6,9 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionUser } from '@/lib/session';
 import { statutsParcelles } from '@/lib/parcelle-statut';
-import { refParcelle } from '@/lib/geo';
+import { refParcelle, centroide, surfaceM2, type GeoJSONGeometry } from '@/lib/geo';
 import { enregistrerParcelleCadastrale } from '@/lib/parcelles';
+import type { Prisma } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,6 +83,7 @@ export async function POST(req: Request) {
     commune?: string;
     contenanceM2?: number | null;
     geometry?: unknown;
+    dessinee?: boolean;
     cepage?: string;
     millesime?: number;
     notes?: string;
@@ -92,6 +94,48 @@ export async function POST(req: Request) {
     where: { id: body.clientId ?? '', organisationId: user.organisationId }
   });
   if (!client) return NextResponse.json({ error: 'Client introuvable' }, { status: 400 });
+
+  // Mode C : parcelle dessinée à la main — géométrie libre, sans référence cadastrale
+  if (body.dessinee) {
+    const g = body.geometry as GeoJSONGeometry | undefined;
+    if (!g || (g.type !== 'Polygon' && g.type !== 'MultiPolygon') || !g.coordinates) {
+      return NextResponse.json({ error: 'Géométrie dessinée invalide' }, { status: 400 });
+    }
+    const c = centroide(g);
+    if (c) {
+      // anti-doublon : même client, centroïde quasi identique
+      const doublon = await prisma.parcelle.findFirst({
+        where: {
+          clientId: client.id,
+          centroidLat: { gte: c.lat - 1e-5, lte: c.lat + 1e-5 },
+          centroidLng: { gte: c.lng - 1e-5, lte: c.lng + 1e-5 }
+        }
+      });
+      if (doublon) {
+        return NextResponse.json(
+          { error: 'Une parcelle existe déjà à cet endroit pour ce client' },
+          { status: 409 }
+        );
+      }
+    }
+    const parcelle = await prisma.parcelle.create({
+      data: {
+        organisationId: user.organisationId,
+        clientId: client.id,
+        geometry: g as unknown as Prisma.InputJsonValue,
+        centroidLat: c?.lat ?? null,
+        centroidLng: c?.lng ?? null,
+        surfaceM2: surfaceM2(g),
+        source: 'MANUEL',
+        cepage: body.cepage || null,
+        millesime: body.millesime || null,
+        notes: body.notes || null,
+        instructions: body.instructions || null
+      }
+    });
+    return NextResponse.json({ ok: true, id: parcelle.id });
+  }
+
   if (!body.codeInsee || !body.section || !body.numero || !body.geometry) {
     return NextResponse.json({ error: 'Référence ou géométrie manquante' }, { status: 400 });
   }
