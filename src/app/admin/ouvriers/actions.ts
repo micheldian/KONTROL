@@ -68,6 +68,11 @@ export async function saveOuvrier(formData: FormData) {
       avant: { ...existing, pinHash: undefined, motDePasseHash: undefined },
       apres: { ...data, pinHash: data.pinHash ? '(modifié)' : undefined }
     });
+    // Taux modifié → réaligner le taux appliqué des heures des mois NON clôturés
+    // (les mois clôturés restent figés : snapshot immuable, règle 8)
+    if (Number(existing.tauxHoraire ?? 0) !== Number(data.tauxHoraire ?? 0)) {
+      await realignerTauxCreneaux(id, user.organisationId, user.userId);
+    }
   } else {
     if (!parsed.pin) throw new Error('PIN obligatoire à la création');
     const created = await prisma.user.create({
@@ -85,6 +90,51 @@ export async function saveOuvrier(formData: FormData) {
   }
   revalidatePath('/admin/ouvriers');
   redirect(`/admin/ouvriers/${ouvrierId}`);
+}
+
+/**
+ * Réaligne CreneauHeures.tauxApplique sur le taux courant de l'ouvrier
+ * (taux individuel, sinon tarif de base) pour tous les mois non clôturés.
+ */
+async function realignerTauxCreneaux(
+  ouvrierId: string,
+  organisationId: string,
+  adminId: string
+) {
+  const [ouvrier, org, clotures] = await Promise.all([
+    prisma.user.findUnique({ where: { id: ouvrierId } }),
+    prisma.organisation.findUnique({ where: { id: organisationId } }),
+    prisma.clotureMois.findMany({
+      where: { organisationId, userId: ouvrierId, statut: 'CLOTUREE' },
+      select: { mois: true, annee: true }
+    })
+  ]);
+  if (!ouvrier) return;
+  const taux = Number(ouvrier.tauxHoraire ?? org?.tarifHoraireBase ?? 0);
+  if (!taux) return;
+
+  const moisFiges = new Set(clotures.map((c) => `${c.annee}-${c.mois}`));
+  const creneaux = await prisma.creneauHeures.findMany({
+    where: { organisationId, userId: ouvrierId, NOT: { tauxApplique: taux } },
+    select: { id: true, date: true }
+  });
+  const aRealigner = creneaux
+    .filter((c) => !moisFiges.has(`${c.date.getUTCFullYear()}-${c.date.getUTCMonth() + 1}`))
+    .map((c) => c.id);
+  if (aRealigner.length === 0) return;
+
+  await prisma.creneauHeures.updateMany({
+    where: { id: { in: aRealigner } },
+    data: { tauxApplique: taux }
+  });
+  await audit({
+    organisationId,
+    userId: adminId,
+    action: 'ouvrier.realignerTaux',
+    entite: 'User',
+    entiteId: ouvrierId,
+    apres: { taux, creneauxRealignes: aRealigner.length }
+  });
 }
 
 /** Débloque immédiatement un PIN rate-limité. */
