@@ -99,7 +99,9 @@ function EvenementsCarte({
 
 function CapteurCarte({ surCarte }: { surCarte: (m: LeafletMap) => void }) {
   const map = useMap();
-  useEffect(() => surCarte(map), [map, surCarte]);
+  useEffect(() => {
+    surCarte(map); // accolades obligatoires : la valeur retournée serait prise pour un cleanup
+  }, [map, surCarte]);
   return null;
 }
 
