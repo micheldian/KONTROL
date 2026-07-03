@@ -213,6 +213,13 @@ export default function CarteAdmin({
     }
   };
 
+  // Sur mobile le bloc « Enregistrer » est sous la carte : on y amène l'écran
+  const scrollVersEnregistrer = () => {
+    setTimeout(() => {
+      document.getElementById('bloc-enregistrer')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+  };
+
   const chercherCandidates = async (url: string, contexte: string) => {
     setMessage(null);
     setCandidates([]);
@@ -230,10 +237,13 @@ export default function CarteAdmin({
         return;
       }
       setCandidates(c);
-      if (c.length === 1) setChoisie(c[0]);
+      if (c.length === 1) {
+        setChoisie(c[0]);
+        scrollVersEnregistrer();
+      }
       const centre = c[0].centroide;
       if (centre && mapRef.current) mapRef.current.setView([centre.lat, centre.lng], 17);
-      if (c.length > 1) setMessage(`${c.length} parcelles renvoyées — cliquez celle à retenir (en bleu).`);
+      if (c.length > 1) setMessage(`${c.length} parcelles renvoyées — choisissez dans la liste ou touchez le polygone bleu.`);
     } catch {
       setMessage('IGN injoignable — réessayez.');
     }
@@ -284,6 +294,7 @@ export default function CarteAdmin({
     });
     setModeDessin(false);
     setMessage('Polygone tracé — choisissez le client puis enregistrez.');
+    scrollVersEnregistrer();
   };
 
   const annulerDessin = () => {
@@ -362,9 +373,10 @@ export default function CarteAdmin({
   ];
 
   return (
-    <div className="flex h-[calc(100vh-110px)]">
+    // Mobile : carte en haut, panneau en dessous. Desktop (md+) : panneau à gauche, carte plein écran.
+    <div className="flex h-[calc(100dvh-150px)] flex-col md:h-[calc(100dvh-110px)] md:flex-row">
       {/* Panneau latéral */}
-      <div className="flex w-[340px] shrink-0 flex-col overflow-hidden border-r-[1.5px] border-line bg-white">
+      <div className="order-2 flex min-h-0 flex-1 flex-col overflow-hidden border-t-[1.5px] border-line bg-white md:order-1 md:w-[340px] md:flex-none md:border-r-[1.5px] md:border-t-0">
         <div className="space-y-2 border-b border-line p-3">
           <div className="flex gap-2">
             <select value={fClient} onChange={(e) => setFClient(e.target.value)} className="input flex-1 py-1.5 text-[13px]">
@@ -522,6 +534,7 @@ export default function CarteAdmin({
                   onClick={() => {
                     setChoisie(c);
                     if (c.centroide && mapRef.current) mapRef.current.setView([c.centroide.lat, c.centroide.lng], 18);
+                    scrollVersEnregistrer();
                   }}
                   className={`block w-full rounded-lg border px-2 py-1.5 text-left text-[12.5px] ${
                     choisie === c ? 'border-brand bg-[#EFF7F1]' : 'border-line bg-white'
@@ -535,7 +548,7 @@ export default function CarteAdmin({
           )}
 
           {choisie && (
-            <div className="space-y-2 rounded-lg border border-line bg-paper p-2">
+            <div id="bloc-enregistrer" className="space-y-2 rounded-lg border border-line bg-paper p-2">
               <div className="text-[12.5px]">
                 <b>
                   {choisie.dessinee
@@ -564,8 +577,8 @@ export default function CarteAdmin({
       </div>
 
       {/* Carte */}
-      <div className="relative min-w-0 flex-1">
-        <div className="absolute right-3 top-3 z-[1000] flex gap-1 rounded-xl bg-white p-1 shadow">
+      <div className="relative order-1 h-[46dvh] shrink-0 md:order-2 md:h-auto md:min-w-0 md:flex-1">
+        <div className="absolute right-2 top-2 z-[1000] flex gap-1 rounded-xl bg-white p-1 shadow md:right-3 md:top-3">
           <button
             onClick={() => setFond('satellite')}
             className={`btn-sm ${fond === 'satellite' ? 'btn-ink' : 'btn-outline'}`}
@@ -582,6 +595,44 @@ export default function CarteAdmin({
             Cadastre
           </button>
         </div>
+
+        {/* Barre d'action flottante (mobile) : dessiner/pointer sans quitter la carte */}
+        {(modeDessin || modePointer) && (
+          <div className="absolute bottom-3 left-2 right-2 z-[1000] flex gap-2 md:hidden">
+            {modeDessin ? (
+              <>
+                <button
+                  onClick={terminerDessin}
+                  disabled={pointsDessin.length < 3}
+                  className="btn-sm btn-green flex-1 py-3 shadow-lg"
+                >
+                  ✓ Terminer ({pointsDessin.length} pt{pointsDessin.length > 1 ? 's' : ''})
+                </button>
+                {pointsDessin.length > 0 && (
+                  <button
+                    onClick={() => setPointsDessin((p) => p.slice(0, -1))}
+                    className="btn-sm rounded-xl bg-white px-4 py-3 shadow-lg"
+                  >
+                    ⌫
+                  </button>
+                )}
+                <button onClick={annulerDessin} className="btn-sm rounded-xl bg-white px-4 py-3 text-warn shadow-lg">
+                  ✕
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => {
+                  setModePointer(false);
+                  setMessage(null);
+                }}
+                className="btn-sm mx-auto rounded-xl bg-white px-5 py-3 shadow-lg"
+              >
+                📍 Touchez une parcelle… (annuler)
+              </button>
+            )}
+          </div>
+        )}
 
         <MapContainer
           bounds={centreAlsace}

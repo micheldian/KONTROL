@@ -36,7 +36,7 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-50 bg-ink text-paper">
+      <header className="sticky top-0 z-[1200] bg-ink text-paper">
         <div className="mx-auto flex max-w-[1200px] items-center justify-between px-4 py-2.5">
           <Link href="/admin" className="text-[17px] font-bold tracking-wider">
             KRON<b className="text-amber">TROL</b>
