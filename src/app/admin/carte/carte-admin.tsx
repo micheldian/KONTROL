@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapContainer, TileLayer, GeoJSON, Popup, Polygon, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, Popup, Polygon, CircleMarker, useMapEvents, useMap } from 'react-leaflet';
 import type { LatLngBoundsExpression, Map as LeafletMap } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -721,19 +721,36 @@ export default function CarteAdmin({
             />
           ))}
 
-          {/* Mode C : aperçu du polygone en cours de dessin */}
+          {/* Mode C : aperçu du polygone en cours de dessin — magenta fluo,
+              la couleur la plus lisible sur photo aérienne (rien de naturel ne l'est) */}
           {pointsDessin.length > 0 && (
-            <Polygon
-              positions={pointsDessin}
-              pathOptions={{
-                color: '#B45309',
-                weight: 3,
-                dashArray: '4 4',
-                fillColor: '#F59E0B',
-                fillOpacity: 0.2
-              }}
-              interactive={false}
-            />
+            <>
+              <Polygon
+                positions={pointsDessin}
+                pathOptions={{
+                  color: '#FF00D4',
+                  weight: 4,
+                  dashArray: '6 6',
+                  fillColor: '#FF00D4',
+                  fillOpacity: 0.25
+                }}
+                interactive={false}
+              />
+              {pointsDessin.map((pt, i) => (
+                <CircleMarker
+                  key={i}
+                  center={pt}
+                  radius={i === 0 ? 8 : 6}
+                  pathOptions={{
+                    color: '#FF00D4',
+                    weight: 3,
+                    fillColor: '#FFFFFF',
+                    fillOpacity: 1
+                  }}
+                  interactive={false}
+                />
+              ))}
+            </>
           )}
         </MapContainer>
       </div>
