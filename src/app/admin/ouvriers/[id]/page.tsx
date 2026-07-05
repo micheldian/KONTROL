@@ -4,6 +4,8 @@ import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import OuvrierForm from '../ouvrier-form';
 import { debloquerPin } from '../actions';
+import { creerSejour, cloreSejour } from '../../logements/actions';
+import ErreurBanniere from '@/components/admin/ErreurBanniere';
 import { recapMois } from '@/lib/money';
 import { historiqueProfil } from '@/lib/historique';
 import { refParcelle } from '@/lib/geo';
@@ -26,7 +28,13 @@ const STATUT_CRENEAU: Record<string, { cls: string; txt: string }> = {
   CORRIGE: { cls: 'badge-muted', txt: 'corrigé' }
 };
 
-export default async function OuvrierPage({ params }: { params: { id: string } }) {
+export default async function OuvrierPage({
+  params,
+  searchParams
+}: {
+  params: { id: string };
+  searchParams: { erreur?: string };
+}) {
   const user = await requireAdmin();
   const ouvrier = await prisma.user.findFirst({
     where: {
@@ -41,7 +49,7 @@ export default async function OuvrierPage({ params }: { params: { id: string } }
   const today = todayParis();
 
   const { mois, annee } = moisCourant();
-  const [recap, historique, sejourActuel, prochainesAffectations, derniersCreneaux] =
+  const [recap, historique, sejourActuel, prochainesAffectations, derniersCreneaux, logements] =
     await Promise.all([
       recapMois({
         organisationId: user.organisationId,
@@ -83,6 +91,10 @@ export default async function OuvrierPage({ params }: { params: { id: string } }
         include: { mission: { include: { client: { select: { nom: true } } } } },
         orderBy: [{ date: 'desc' }, { heureDebut: 'desc' }],
         take: 6
+      }),
+      prisma.logement.findMany({
+        where: { organisationId: user.organisationId },
+        orderBy: { nom: 'asc' }
       })
     ]);
 
@@ -108,6 +120,8 @@ export default async function OuvrierPage({ params }: { params: { id: string } }
           </Link>
         </div>
       </div>
+
+      <ErreurBanniere erreur={searchParams.erreur} />
 
       {pinBloque && (
         <div className="mb-4 flex items-center justify-between rounded-card border-[1.5px] border-[#F3C1A8] bg-[#FFF3EC] px-4 py-3">
@@ -179,20 +193,64 @@ export default async function OuvrierPage({ params }: { params: { id: string } }
                 {Number(sejourActuel.logement.tarifJour).toFixed(2).replace('.', ',')} €/jour ·{' '}
                 {formatEuros(recap.logement.total)} décomptés ce mois
               </div>
-              <Link
-                href={`/admin/logements/${sejourActuel.logementId}`}
-                className="btn-sm btn-outline mt-2"
-              >
-                Fiche logement →
-              </Link>
+              <div className="mt-2 flex flex-wrap items-end gap-2">
+                <Link
+                  href={`/admin/logements/${sejourActuel.logementId}`}
+                  className="btn-sm btn-outline"
+                >
+                  Fiche logement →
+                </Link>
+                <form action={cloreSejour} className="flex items-end gap-2">
+                  <input type="hidden" name="id" value={sejourActuel.id} />
+                  <input type="hidden" name="retour" value={`/admin/ouvriers/${ouvrier.id}`} />
+                  <div>
+                    <label className="label">Départ (jour exclu)</label>
+                    <input name="dateDepart" type="date" required defaultValue={today} className="input py-1.5" />
+                  </div>
+                  <button className="btn-sm btn-outline">Clore le séjour</button>
+                </form>
+              </div>
             </div>
           ) : (
-            <p className="text-[13.5px] text-muted">
-              Pas de logement en cours.{' '}
-              <Link href="/admin/logements" className="underline">
-                Assigner un séjour →
-              </Link>
-            </p>
+            <div>
+              <p className="mb-2 text-[13px] text-muted">
+                Pas de logement en cours — assignez-le ici (arrivée incluse, départ exclu,
+                décompté chaque jour de présence) :
+              </p>
+              <form action={creerSejour} className="space-y-2">
+                <input type="hidden" name="ouvrierId" value={ouvrier.id} />
+                <input type="hidden" name="retour" value={`/admin/ouvriers/${ouvrier.id}`} />
+                <select name="logementId" required className="input w-full py-2 text-[13.5px]" defaultValue="">
+                  <option value="" disabled>
+                    — Choisir un logement —
+                  </option>
+                  {logements.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.nom} · {Number(l.tarifJour).toFixed(2).replace('.', ',')} €/jour
+                    </option>
+                  ))}
+                </select>
+                <div className="flex flex-wrap items-end gap-2">
+                  <div>
+                    <label className="label">Arrivée *</label>
+                    <input name="dateArrivee" type="date" required defaultValue={today} className="input py-2" />
+                  </div>
+                  <div>
+                    <label className="label">Départ (optionnel)</label>
+                    <input name="dateDepart" type="date" className="input py-2" />
+                  </div>
+                  <button className="btn-sm btn-green py-2.5">🛏 Assigner</button>
+                </div>
+              </form>
+              {logements.length === 0 && (
+                <p className="mt-2 text-[12.5px] text-muted">
+                  Aucun logement créé —{' '}
+                  <Link href="/admin/logements/new" className="underline">
+                    créer un logement →
+                  </Link>
+                </p>
+              )}
+            </div>
           )}
           {historique.logements.length > 0 && (
             <p className="mt-2 text-[12px] text-muted">

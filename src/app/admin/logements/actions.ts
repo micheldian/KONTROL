@@ -66,7 +66,7 @@ const sejourSchema = z.object({
 });
 
 /** Ouvre un séjour : arrivée incluse, départ exclu (règle 6). */
-export async function creerSejour(formData: FormData) {
+async function creerSejourCoeur(formData: FormData) {
   const user = await requireAdmin();
   const parsed = sejourSchema.parse(Object.fromEntries(formData.entries()));
 
@@ -109,10 +109,11 @@ export async function creerSejour(formData: FormData) {
     apres: parsed
   });
   revalidatePath(`/admin/logements/${parsed.logementId}`);
+  revalidatePath(`/admin/ouvriers/${parsed.ouvrierId}`);
 }
 
 /** Clôt un séjour (départ, jour exclu par défaut). */
-export async function cloreSejour(formData: FormData) {
+async function cloreSejourCoeur(formData: FormData) {
   const user = await requireAdmin();
   const id = formData.get('id') as string;
   const dateDepart = formData.get('dateDepart') as string;
@@ -139,6 +140,33 @@ export async function cloreSejour(formData: FormData) {
     apres: { dateDepart }
   });
   revalidatePath(`/admin/logements/${sejour.logementId}`);
+}
+
+
+// Wrappers form-action : les messages des throw sont masqués en production →
+// catch + redirect ?erreur= vers la page d'origine (bannière).
+export async function creerSejour(formData: FormData) {
+  const retour =
+    (formData.get('retour') as string) || `/admin/logements/${formData.get('logementId')}`;
+  let erreur: string | null = null;
+  try {
+    await creerSejourCoeur(formData);
+  } catch (e) {
+    erreur = e instanceof Error ? e.message : 'Erreur inattendue';
+  }
+  redirect(erreur ? `${retour}?erreur=${encodeURIComponent(erreur)}` : retour);
+}
+
+export async function cloreSejour(formData: FormData) {
+  const retour = (formData.get('retour') as string) || '';
+  let erreur: string | null = null;
+  try {
+    await cloreSejourCoeur(formData);
+  } catch (e) {
+    erreur = e instanceof Error ? e.message : 'Erreur inattendue';
+  }
+  if (retour) redirect(erreur ? `${retour}?erreur=${encodeURIComponent(erreur)}` : retour);
+  if (erreur) throw new Error(erreur);
 }
 
 export async function supprimerSejour(formData: FormData) {
