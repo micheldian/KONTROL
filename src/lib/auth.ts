@@ -37,7 +37,7 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email.toLowerCase().trim() }
         });
         if (!user || !user.motDePasseHash || !user.actif) return null;
-        if (user.role !== 'ADMIN' && user.role !== 'MANAGER' && user.role !== 'CLIENT') return null;
+        if (!['ADMIN', 'MANAGER', 'CLIENT', 'RECRUTEUR'].includes(user.role)) return null;
 
         // Même rate-limiting que le PIN : 5 échecs → blocage 15 min
         if (user.pinBloqueJusqua && user.pinBloqueJusqua > new Date()) {

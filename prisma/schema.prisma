@@ -14,6 +14,7 @@ enum Role {
   ADMIN
   MANAGER
   CLIENT
+  RECRUTEUR
   CHEF_EQUIPE
   OUVRIER
 }
@@ -36,6 +37,7 @@ enum SourceProfil {
   PORTAIL
   MANUEL
   IMPORT
+  RECRUTEUR
 }
 
 enum StatutCandidature {
@@ -63,6 +65,7 @@ enum ContexteMessage {
   AFFECTATION
   RECAP
   VIVIER
+  DEMANDE
   AUTRE
 }
 
@@ -103,6 +106,24 @@ enum ParcelleSource {
   IMPORT_GEOMETRIE
 }
 
+enum StatutDemande {
+  OUVERTE
+  POURVUE
+  FERMEE
+}
+
+enum StatutProposition {
+  PROPOSEE
+  ACCEPTEE
+  REFUSEE
+}
+
+enum StatutCommission {
+  DUE
+  PAYEE
+  ANNULEE
+}
+
 enum ImportStatut {
   EN_ATTENTE
   EN_COURS
@@ -111,47 +132,51 @@ enum ImportStatut {
 }
 
 model Organisation {
-  id              String   @id @default(cuid())
-  nom             String
-  tarifHoraireBase Decimal @default(12.5) @db.Decimal(8, 2)
+  id               String   @id @default(cuid())
+  nom              String
+  tarifHoraireBase Decimal  @default(12.5) @db.Decimal(8, 2)
   // parametres : regleDepartLogementInclus, templates de messages, telegramBotToken, pennylaneApiKey…
-  parametres      Json     @default("{}")
-  createdAt       DateTime @default(now())
+  parametres       Json     @default("{}")
+  createdAt        DateTime @default(now())
 
-  users          User[]
-  clients        Client[]
-  missions       Mission[]
-  affectations   Affectation[]
-  creneaux       CreneauHeures[]
-  acomptes       Acompte[]
-  retenues       Retenue[]
-  logements      Logement[]
-  clotures       ClotureMois[]
-  factures       FactureClient[]
-  auditLogs      AuditLog[]
-  competenceTags CompetenceTag[]
-  candidatures   Candidature[]
-  envois         EnvoiMessage[]
-  parcelles      Parcelle[]
-  importBatches  ImportBatch[]
+  users               User[]
+  clients             Client[]
+  missions            Mission[]
+  affectations        Affectation[]
+  creneaux            CreneauHeures[]
+  acomptes            Acompte[]
+  retenues            Retenue[]
+  logements           Logement[]
+  clotures            ClotureMois[]
+  factures            FactureClient[]
+  auditLogs           AuditLog[]
+  competenceTags      CompetenceTag[]
+  candidatures        Candidature[]
+  envois              EnvoiMessage[]
+  parcelles           Parcelle[]
+  importBatches       ImportBatch[]
+  demandes            DemandeMainOeuvre[]
+  propositions        PropositionCandidat[]
+  placements          Placement[]
+  paiementsCommission PaiementCommission[]
 }
 
 model User {
-  id                 String        @id @default(cuid())
+  id                 String       @id @default(cuid())
   organisationId     String
-  organisation       Organisation  @relation(fields: [organisationId], references: [id])
-  role               Role          @default(OUVRIER)
-  statutProfil       StatutProfil  @default(ACTIF)
+  organisation       Organisation @relation(fields: [organisationId], references: [id])
+  role               Role         @default(OUVRIER)
+  statutProfil       StatutProfil @default(ACTIF)
   nom                String
   prenom             String
-  telephone          String        @unique
-  email              String?       @unique
+  telephone          String       @unique
+  email              String?      @unique
   pinHash            String?
   motDePasseHash     String?
-  langue             Langue        @default(FR)
-  tauxHoraire        Decimal?      @db.Decimal(8, 2)
+  langue             Langue       @default(FR)
+  tauxHoraire        Decimal?     @db.Decimal(8, 2)
   iban               String?
-  estChefEquipe      Boolean       @default(false)
+  estChefEquipe      Boolean      @default(false)
   note               Int? // 1-5, modifiable uniquement par ADMIN, jamais visible ouvrier
   noteCommentaire    String?
   experienceDeclaree String?
@@ -159,11 +184,12 @@ model User {
   listeNoireAt       DateTime?
   listeNoireParId    String?
   notesInternes      String?
-  source             SourceProfil  @default(MANUEL)
-  actif              Boolean       @default(true)
+  source             SourceProfil @default(MANUEL)
+  actif              Boolean      @default(true)
   clientId           String? // rattachement à un Client si role = CLIENT (portail client)
-  client             Client?       @relation(fields: [clientId], references: [id])
-  createdAt          DateTime      @default(now())
+  client             Client?      @relation(fields: [clientId], references: [id])
+  societe            String? // recruteurs : nom d'agence / société
+  createdAt          DateTime     @default(now())
 
   // Rate-limiting PIN : blocage 15 min après 5 échecs
   pinEchecs       Int       @default(0)
@@ -171,16 +197,21 @@ model User {
 
   telegramChatId String?
 
-  competences        UserCompetence[]
+  competences         UserCompetence[]
   affectationsOuvrier AffectationOuvrier[]
-  creneaux           CreneauHeures[]      @relation("CreneauxOuvrier")
-  acomptes           Acompte[]
-  retenues           Retenue[]
-  sejours            SejourLogement[]
-  clotures           ClotureMois[]
-  candidatures       Candidature[]
-  envoisRecus        EnvoiMessage[]
-  pushSubscriptions  PushSubscription[]
+  creneaux            CreneauHeures[]       @relation("CreneauxOuvrier")
+  acomptes            Acompte[]
+  retenues            Retenue[]
+  sejours             SejourLogement[]
+  clotures            ClotureMois[]
+  candidatures        Candidature[]
+  envoisRecus         EnvoiMessage[]
+  pushSubscriptions   PushSubscription[]
+  propositionsEmises  PropositionCandidat[] @relation("PropositionsRecruteur")
+  propositionsRecues  PropositionCandidat[] @relation("PropositionsCandidat")
+  placementsEmis      Placement[]           @relation("PlacementsRecruteur")
+  placementsRecus     Placement[]           @relation("PlacementsCandidat")
+  paiementsCommission PaiementCommission[]
 
   @@index([organisationId, statutProfil])
   @@index([organisationId, role])
@@ -193,7 +224,8 @@ model CompetenceTag {
   libelle        String
   actif          Boolean      @default(true)
 
-  users UserCompetence[]
+  users    UserCompetence[]
+  demandes DemandeCompetence[]
 
   @@unique([organisationId, libelle])
 }
@@ -302,19 +334,19 @@ model Parcelle {
 }
 
 model Affectation {
-  id                  String       @id @default(cuid())
-  organisationId      String
-  organisation        Organisation @relation(fields: [organisationId], references: [id])
-  date                DateTime     @db.Date
-  missionId           String
-  mission             Mission      @relation(fields: [missionId], references: [id])
-  heureDebut          String // "HH:MM"
-  heureFinPrevue      String?
-  pauseMinutesPrevue  Int?
-  chefEquipeId        String?
-  instructions        String?
-  publieAt            DateTime?
-  createdAt           DateTime     @default(now())
+  id                 String       @id @default(cuid())
+  organisationId     String
+  organisation       Organisation @relation(fields: [organisationId], references: [id])
+  date               DateTime     @db.Date
+  missionId          String
+  mission            Mission      @relation(fields: [missionId], references: [id])
+  heureDebut         String // "HH:MM"
+  heureFinPrevue     String?
+  pauseMinutesPrevue Int?
+  chefEquipeId       String?
+  instructions       String?
+  publieAt           DateTime?
+  createdAt          DateTime     @default(now())
 
   parcelles AffectationParcelle[] // multi-parcelles (V3)
   ouvriers  AffectationOuvrier[]
@@ -509,6 +541,108 @@ model AuditLog {
   createdAt      DateTime     @default(now())
 
   @@index([organisationId, entite, entiteId])
+}
+
+// ─── Module Recruteurs (phase 17) ────────────────────────────────────────────
+// L'organisation publie des demandes de main-d'œuvre ; des recruteurs externes
+// proposent des candidats ; chaque placement accepté vaut une commission fixe.
+
+model DemandeMainOeuvre {
+  id                     String        @id @default(cuid())
+  organisationId         String
+  organisation           Organisation  @relation(fields: [organisationId], references: [id])
+  titre                  String
+  nbPersonnes            Int
+  dateDebut              DateTime      @db.Date
+  dateFin                DateTime?     @db.Date
+  region                 String?
+  description            String?
+  conditions             String? // salaire indicatif, logement fourni…
+  commissionParPlacement Decimal       @db.Decimal(8, 2)
+  statut                 StatutDemande @default(OUVERTE)
+  creeParId              String
+  creeAt                 DateTime      @default(now())
+
+  competences  DemandeCompetence[]
+  propositions PropositionCandidat[]
+  placements   Placement[]
+
+  @@index([organisationId, statut])
+}
+
+model DemandeCompetence {
+  id        String            @id @default(cuid())
+  demandeId String
+  demande   DemandeMainOeuvre @relation(fields: [demandeId], references: [id], onDelete: Cascade)
+  tagId     String
+  tag       CompetenceTag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([demandeId, tagId])
+}
+
+model PropositionCandidat {
+  id             String             @id @default(cuid())
+  organisationId String
+  organisation   Organisation       @relation(fields: [organisationId], references: [id])
+  demandeId      String? // null = proposition spontanée
+  demande        DemandeMainOeuvre? @relation(fields: [demandeId], references: [id])
+  recruteurId    String
+  recruteur      User               @relation("PropositionsRecruteur", fields: [recruteurId], references: [id])
+  candidatUserId String
+  candidat       User               @relation("PropositionsCandidat", fields: [candidatUserId], references: [id])
+  statut         StatutProposition  @default(PROPOSEE)
+  motifRefus     String?
+  doublonDetecte Boolean            @default(false) // téléphone déjà connu à la proposition
+  creeAt         DateTime           @default(now())
+  traiteParId    String?
+  traiteAt       DateTime?
+
+  placement Placement?
+
+  @@index([organisationId, statut])
+  @@index([recruteurId])
+  @@index([candidatUserId])
+}
+
+model Placement {
+  id                String              @id @default(cuid())
+  organisationId    String
+  organisation      Organisation        @relation(fields: [organisationId], references: [id])
+  propositionId     String              @unique
+  proposition       PropositionCandidat @relation(fields: [propositionId], references: [id])
+  recruteurId       String
+  recruteur         User                @relation("PlacementsRecruteur", fields: [recruteurId], references: [id])
+  candidatUserId    String
+  candidat          User                @relation("PlacementsCandidat", fields: [candidatUserId], references: [id])
+  demandeId         String?
+  demande           DemandeMainOeuvre?  @relation(fields: [demandeId], references: [id])
+  commissionMontant Decimal             @db.Decimal(8, 2)
+  commissionStatut  StatutCommission    @default(DUE)
+  motifAnnulation   String?
+  placeAt           DateTime            @default(now())
+  annuleAt          DateTime?
+  paiementId        String?
+  paiement          PaiementCommission? @relation(fields: [paiementId], references: [id])
+
+  @@index([organisationId, commissionStatut])
+  @@index([recruteurId])
+}
+
+model PaiementCommission {
+  id             String       @id @default(cuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id])
+  recruteurId    String
+  recruteur      User         @relation(fields: [recruteurId], references: [id])
+  montant        Decimal      @db.Decimal(10, 2)
+  date           DateTime     @db.Date
+  mode           ModePaiement
+  note           String?
+  creeAt         DateTime     @default(now())
+
+  placements Placement[] // placements couverts (marquage FIFO)
+
+  @@index([organisationId, recruteurId])
 }
 
 // Import de masse clients + parcelles (§5.14) — traitement par lots résumable.

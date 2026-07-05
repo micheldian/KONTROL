@@ -172,3 +172,44 @@ compétences, les modèles de messages, le token Telegram et la clé Pennylane.
 - [ ] Diffuser le lien `/rejoindre` (Facebook, WhatsApp, affiches).
 - [ ] Faire installer la PWA aux ouvriers (Ajouter à l'écran d'accueil) et accepter les notifications.
 - [ ] Vérifier le premier cron (logs Vercel → Crons).
+
+---
+
+## 6. Phase 17 — Module Recruteurs (ajout du 05/07/2026)
+
+### Livré
+| Fonctionnalité (spec Recruteurs §A-G) | État |
+|---|---|
+| B — Rôle RECRUTEUR, inscription publique ouverte `/recruteur/inscription`, suspension (login bloqué) | ✅ |
+| C.1 Demandes ouvertes : titre, dates, région, conditions, commission, pourvus X/N | ✅ |
+| C.2 Proposer un candidat (sur demande ou spontané), téléphone = clé, doublon signalé au recruteur | ✅ |
+| C.3 Mes candidats : statuts en attente / accepté / refusé (+ motif), « 💰 placé » | ✅ |
+| C.4 Mes gains : ticket généré / payé / reste dû, placements datés, historique des paiements | ✅ |
+| D.1 CRUD demandes + notification auto Telegram (template DEMANDE FR/RO/ES) + wa.me par recruteur | ✅ |
+| D.2 Propositions dans /admin/candidatures : badge « via [Recruteur] », doublon, accepter → vivier | ✅ |
+| D.3 /admin/recruteurs : liste (propositions, placements, réussite, dû/payé), fiche, paiement, suspension | ✅ |
+| D.4 Export CSV commissions (`/api/commissions/export`, ; + BOM, filtre ?debut&fin) + 2 cartes dashboard | ✅ |
+| E.1-2 Commission fixe par placement (défaut 100 € dans Paramètres, surchargeable par demande) | ✅ |
+| E.3 Doublon connu jamais commissionné SAUF INACTIF sans activité > 12 mois (paramétrable) | ✅ |
+| E.4 Double proposition → premier recruteur (horodatage) crédité, l'autre refusée automatiquement | ✅ |
+| E.5 Refus / liste noire → aucune commission ; liste noire bloque l'acceptation | ✅ |
+| E.6 Annulation d'un placement ≤ 7 jours (paramétrable), motif obligatoire, commission ANNULÉE | ✅ |
+| E.7-8 Audit complet (proposition, acceptation+raison d'éligibilité, placement, paiement, annulation, suspension) | ✅ |
+| F — Modèle : DemandeMainOeuvre, DemandeCompetence, PropositionCandidat, Placement, PaiementCommission | ✅ |
+
+### Choix d'implémentation
+- Paiement de commission **FIFO** : un paiement marque PAYÉS les placements DUS les plus
+  anciens tant que le montant les couvre entièrement (traçabilité placement → paiement).
+- Candidat proposé = User `role OUVRIER, statutProfil CANDIDAT, actif false, source RECRUTEUR`
+  → réutilise toute la mécanique vivier existante (fiche, tags, historique, liste noire).
+- Un recruteur ne peut pas proposer un numéro appartenant à un compte interne
+  (ADMIN/MANAGER/CLIENT/RECRUTEUR), ni re-proposer un candidat qu'il a déjà en attente.
+- L'acceptation d'un doublon d'un ouvrier ACTIF ne touche pas à son statut (pas de retour
+  vivier) et ne crée pas de placement.
+- Base **déjà migrée en prod** (`prisma/migration-recruteurs.sql`, idempotente à re-jouer).
+
+### E2E vérifié (Chromium, base locale)
+Inscription → login → création de demande → notification (SIMULE) → proposition sur demande
+→ doublon ouvrier actif détecté → proposition spontanée → acceptation des 3 → 2 placements
+(200 € dus, doublon exclu) → annulation motivée d'un placement → paiement 100 € → reste dû 0
+→ gains recruteur à jour → CSV (PAYEE + ANNULEE tracés) → suspension → login refusé. ✅

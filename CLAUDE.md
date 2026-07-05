@@ -121,6 +121,21 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       par parcelle (carnet de travaux : date, travaux, heures validées). Jamais de taux
       ouvriers/acomptes/logements/vivier. Mini-carte « parcelles du jour » sur le dashboard
       admin (bordure = confirmations équipe). Comptes CLIENT gérés dans Paramètres.
+- [x] **Phase 17 — Module Recruteurs** : rôle RECRUTEUR (inscription publique ouverte
+      `/recruteur/inscription`, suspension = `actif:false` bloque le login). Portail
+      `/recruteur` : demandes ouvertes (commission, pourvus X/N), proposer un candidat
+      (sur demande ou spontané, téléphone = clé de dédoublonnage, doublon signalé),
+      « Mes candidats » (statuts), « Mes gains » (ticket généré/payé/reste dû). Admin :
+      `/admin/demandes` (CRUD + notification Telegram auto + wa.me, template DEMANDE
+      FR/RO/ES), propositions dans `/admin/candidatures` (badge « via [Recruteur] »,
+      accepter → VIVIER + Placement si éligible), `/admin/recruteurs` (stats, fiche gains,
+      paiement FIFO, annulation sous délai motivée, suspension), export CSV
+      `/api/commissions/export`, 2 cartes dashboard, 3 réglages dans Paramètres. Règles
+      anti-abus (spec §E) dans `lib/recruteurs.ts` : commission fixe (défaut 100 €),
+      profil déjà connu jamais commissionné SAUF INACTIF > delaiRepropositionMois (12),
+      premier recruteur crédité en cas de double proposition, annulation ≤
+      delaiAnnulationPlacementJours (7), liste noire bloquée, tout audité. Migration base
+      existante : `prisma/migration-recruteurs.sql` (déjà appliquée en prod).
 
 ## Lancer le projet en local
 
@@ -147,6 +162,7 @@ npm run dev               # http://localhost:3000
 | Ouvrier (RO) | +40722222222 | PIN 1234 |
 | Ouvrier (RO) | +40733333333 | PIN 1234 |
 | Ouvrier (ES) | +34644444444 | PIN 1234 |
+| RECRUTEUR (portail /recruteur) | inscription libre sur /recruteur/inscription | — |
 
 **Tester la connexion PIN** : ouvrir `http://localhost:3000`, saisir `+40722222222`
 (ou `0722…` sera normalisé), taper `1234` sur le pavé — la connexion part au 4ᵉ chiffre.
@@ -158,7 +174,7 @@ npm run dev               # http://localhost:3000
 prisma/schema.prisma      # modèle complet (section 5) + rate-limit PIN + push
 prisma/seed.ts
 src/
-  middleware.ts           # garde /admin (ADMIN|MANAGER), /app (ouvriers), /client (CLIENT)
+  middleware.ts           # garde /admin (ADMIN|MANAGER), /app (ouvriers), /client (CLIENT), /recruteur (RECRUTEUR)
   i18n/request.ts         # locale par cookie NEXT_LOCale, tz Europe/Paris
   messages/{fr,ro,es}.json
   lib/

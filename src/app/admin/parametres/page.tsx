@@ -15,7 +15,8 @@ export const dynamic = 'force-dynamic';
 const CONTEXTES = [
   { key: 'AFFECTATION', titre: 'Affectation (envoi du planning)' },
   { key: 'RECAP', titre: 'Récapitulatif mensuel' },
-  { key: 'VIVIER', titre: 'Vivier (« on a une mission pour vous »)' }
+  { key: 'VIVIER', titre: 'Vivier (« on a une mission pour vous »)' },
+  { key: 'DEMANDE', titre: 'Demande de main-d’œuvre (envoi aux recruteurs)' }
 ] as const;
 const LANGUES = ['FR', 'RO', 'ES'] as const;
 
@@ -109,6 +110,56 @@ export default async function ParametresPage() {
               defaultValue={(params.pennylaneApiKey as string) ?? ''}
               className="input font-mono text-[13px]"
             />
+          </div>
+        </div>
+        <h2 className="pt-2 text-[16px] font-bold">Recruteurs & commissions</h2>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className="label">Commission par placement (€)</label>
+            <input
+              name="commissionDefaut"
+              type="number"
+              step="0.01"
+              min={1}
+              defaultValue={Number(params.commissionDefaut) > 0 ? Number(params.commissionDefaut) : 100}
+              className="input"
+            />
+            <p className="mt-1 text-[12px] text-muted">
+              Montant fixe par défaut, surchargeable demande par demande.
+            </p>
+          </div>
+          <div>
+            <label className="label">Re-proposition possible après (mois)</label>
+            <input
+              name="delaiRepropositionMois"
+              type="number"
+              min={1}
+              defaultValue={
+                Number(params.delaiRepropositionMois) > 0 ? Number(params.delaiRepropositionMois) : 12
+              }
+              className="input"
+            />
+            <p className="mt-1 text-[12px] text-muted">
+              Un profil déjà connu ne rapporte une commission que s’il est INACTIF depuis plus
+              longtemps que ce délai.
+            </p>
+          </div>
+          <div>
+            <label className="label">Délai d’annulation d’un placement (jours)</label>
+            <input
+              name="delaiAnnulationPlacementJours"
+              type="number"
+              min={1}
+              defaultValue={
+                Number(params.delaiAnnulationPlacementJours) > 0
+                  ? Number(params.delaiAnnulationPlacementJours)
+                  : 7
+              }
+              className="input"
+            />
+            <p className="mt-1 text-[12px] text-muted">
+              Si le candidat ne se présente pas, la commission peut être annulée dans ce délai.
+            </p>
           </div>
         </div>
         <button className="btn-sm btn-green px-5 py-2.5">Enregistrer</button>

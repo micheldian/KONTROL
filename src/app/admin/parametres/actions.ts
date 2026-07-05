@@ -25,6 +25,17 @@ export async function majParametres(formData: FormData) {
     pennylaneApiKey: ((formData.get('pennylaneApiKey') as string) || '').trim()
   };
 
+  // Module recruteurs : commission fixe + délais anti-abus (phase 17)
+  const numOuDefaut = (champ: string, defaut: number) => {
+    const v = Number(formData.get(champ));
+    return Number.isFinite(v) && v > 0 ? v : defaut;
+  };
+  Object.assign(parametres, {
+    commissionDefaut: numOuDefaut('commissionDefaut', 100),
+    delaiRepropositionMois: Math.round(numOuDefaut('delaiRepropositionMois', 12)),
+    delaiAnnulationPlacementJours: Math.round(numOuDefaut('delaiAnnulationPlacementJours', 7))
+  });
+
   await prisma.organisation.update({
     where: { id: user.organisationId },
     data: { tarifHoraireBase: tarif, parametres }
@@ -40,7 +51,7 @@ export async function majParametres(formData: FormData) {
   revalidatePath('/admin/parametres');
 }
 
-const CONTEXTES = ['AFFECTATION', 'RECAP', 'VIVIER'] as const;
+const CONTEXTES = ['AFFECTATION', 'RECAP', 'VIVIER', 'DEMANDE'] as const;
 const LANGUES = ['FR', 'RO', 'ES'] as const;
 
 /** Modèles de messages (3 contextes × 3 langues). */

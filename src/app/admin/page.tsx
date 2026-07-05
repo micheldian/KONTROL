@@ -10,7 +10,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
   const user = await requireAdmin();
-  const [org, nbOuvriers, synthese, affectationsJour] = await Promise.all([
+  const [org, nbOuvriers, synthese, affectationsJour, propositionsEnAttente, commissionsDues] =
+    await Promise.all([
     prisma.organisation.findUnique({ where: { id: user.organisationId } }),
     prisma.user.count({
       where: {
@@ -27,8 +28,16 @@ export default async function AdminDashboard() {
         parcelles: { include: { parcelle: true } },
         ouvriers: { select: { confirme: true } }
       }
+    }),
+    prisma.propositionCandidat.count({
+      where: { organisationId: user.organisationId, statut: 'PROPOSEE' }
+    }),
+    prisma.placement.aggregate({
+      where: { organisationId: user.organisationId, commissionStatut: 'DUE' },
+      _sum: { commissionMontant: true }
     })
   ]);
+  const totalCommissionsDues = Number(commissionsDues._sum.commissionMontant ?? 0);
 
   // Mini-carte du jour : parcelles des affectations, bordure par statut de confirmation
   const parcellesJour = affectationsJour.flatMap((a) => {
@@ -96,6 +105,18 @@ export default async function AdminDashboard() {
             ? 'amber'
             : 'green',
       href: '/admin/candidatures'
+    },
+    {
+      n: propositionsEnAttente,
+      texte: 'Propositions de recruteurs à traiter',
+      couleur: propositionsEnAttente > 0 ? 'amber' : 'green',
+      href: '/admin/candidatures'
+    },
+    {
+      n: formatEuros(totalCommissionsDues),
+      texte: 'Commissions recruteurs à payer',
+      couleur: totalCommissionsDues > 0 ? 'amber' : 'green',
+      href: '/admin/recruteurs'
     }
   ] as const;
 

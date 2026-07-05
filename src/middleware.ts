@@ -49,6 +49,20 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  if (pathname.startsWith('/recruteur')) {
+    // Pages publiques : inscription et login
+    if (pathname.startsWith('/recruteur/login') || pathname.startsWith('/recruteur/inscription')) {
+      if (token && token.role === 'RECRUTEUR') {
+        return NextResponse.redirect(new URL('/recruteur', req.url));
+      }
+      return NextResponse.next();
+    }
+    if (!token || token.role !== 'RECRUTEUR') {
+      return NextResponse.redirect(new URL('/recruteur/login', req.url));
+    }
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith('/app')) {
     if (!token || (token.role !== 'OUVRIER' && token.role !== 'CHEF_EQUIPE')) {
       return NextResponse.redirect(new URL('/', req.url));
@@ -66,11 +80,14 @@ export async function middleware(req: NextRequest) {
     if (token && token.role === 'CLIENT') {
       return NextResponse.redirect(new URL('/client', req.url));
     }
+    if (token && token.role === 'RECRUTEUR') {
+      return NextResponse.redirect(new URL('/recruteur', req.url));
+    }
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/', '/admin/:path*', '/app/:path*', '/client/:path*', '/rejoindre']
+  matcher: ['/', '/admin/:path*', '/app/:path*', '/client/:path*', '/recruteur/:path*', '/rejoindre']
 };

@@ -5,7 +5,7 @@ import { authOptions } from './auth';
 export type SessionUser = {
   userId: string;
   organisationId: string;
-  role: 'ADMIN' | 'MANAGER' | 'CLIENT' | 'CHEF_EQUIPE' | 'OUVRIER';
+  role: 'ADMIN' | 'MANAGER' | 'CLIENT' | 'RECRUTEUR' | 'CHEF_EQUIPE' | 'OUVRIER';
   clientId: string | null;
   langue: 'FR' | 'RO' | 'ES';
   estChefEquipe: boolean;
@@ -50,6 +50,13 @@ export async function requireClient(): Promise<SessionUser & { clientId: string 
 export async function requireAdminStrict(): Promise<SessionUser> {
   const user = await getSessionUser();
   if (!user || user.role !== 'ADMIN') redirect('/admin/login');
+  return user;
+}
+
+/** Portail recruteur : rôle RECRUTEUR (suspendable via actif=false). */
+export async function requireRecruteur(): Promise<SessionUser> {
+  const user = await getSessionUser();
+  if (!user || user.role !== 'RECRUTEUR') redirect('/recruteur/login');
   return user;
 }
 
