@@ -7,9 +7,9 @@ import { getToken } from 'next-auth/jwt';
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Lien de recrutement pré-langué : /rejoindre?lang=ro ouvre directement en
-  // roumain (cookie posé puis URL nettoyée) — idem lang=es / lang=fr.
-  if (pathname === '/rejoindre') {
+  // Lien pré-langué : /rejoindre?lang=ro (ou /recruteur/inscription?lang=ro…)
+  // ouvre directement en roumain (cookie posé puis URL nettoyée) — idem es / fr.
+  if (pathname === '/rejoindre' || pathname.startsWith('/recruteur')) {
     const lang = req.nextUrl.searchParams.get('lang');
     if (lang && ['fr', 'ro', 'es'].includes(lang)) {
       const url = req.nextUrl.clone();
@@ -18,7 +18,7 @@ export async function middleware(req: NextRequest) {
       res.cookies.set('NEXT_LOCALE', lang, { maxAge: 365 * 24 * 60 * 60, path: '/' });
       return res;
     }
-    return NextResponse.next();
+    if (pathname === '/rejoindre') return NextResponse.next();
   }
 
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });

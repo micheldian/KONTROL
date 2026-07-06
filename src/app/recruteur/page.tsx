@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { requireRecruteur } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { formatDate, formatEuros, ymd } from '@/lib/dates';
@@ -8,6 +9,7 @@ export const dynamic = 'force-dynamic';
 // Demandes ouvertes avec toutes les informations + commission + progression (spec §C.1).
 export default async function DemandesOuvertesPage() {
   const user = await requireRecruteur();
+  const t = await getTranslations('recruiter');
 
   const demandes = await prisma.demandeMainOeuvre.findMany({
     where: { organisationId: user.organisationId, statut: 'OUVERTE' },
@@ -21,9 +23,9 @@ export default async function DemandesOuvertesPage() {
   return (
     <div>
       <h1 className="mb-5 text-[21px] font-bold">
-        Demandes de main-d’œuvre ouvertes
+        {t('requestsTitle')}
         <span className="block text-[13px] font-normal text-muted">
-          Proposez vos candidats — commission fixe versée pour chaque personne placée
+          {t('requestsSubtitle')}
         </span>
       </h1>
 
@@ -36,7 +38,7 @@ export default async function DemandesOuvertesPage() {
                 <div className="min-w-[240px] flex-1">
                   <b className="text-[16px]">{d.titre}</b>
                   <div className="mt-1 text-[13.5px] text-muted">
-                    👥 {d.nbPersonnes} personne{d.nbPersonnes > 1 ? 's' : ''} · 📅{' '}
+                    👥 {t('persons', { n: d.nbPersonnes })} · 📅{' '}
                     {formatDate(ymd(d.dateDebut))}
                     {d.dateFin ? ` → ${formatDate(ymd(d.dateFin))}` : ''}
                     {d.region ? ` · 📍 ${d.region}` : ''}
@@ -54,23 +56,25 @@ export default async function DemandesOuvertesPage() {
                     <p className="mt-2 text-[13.5px]">{d.description}</p>
                   )}
                   {d.conditions && (
-                    <p className="mt-1 text-[13px] text-muted">Conditions : {d.conditions}</p>
+                    <p className="mt-1 text-[13px] text-muted">
+                      {t('conditions', { c: d.conditions })}
+                    </p>
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <span className="badge badge-ok text-[13px]">
-                    💰 {formatEuros(Number(d.commissionParPlacement))} / placement
+                    {t('perPlacement', { m: formatEuros(Number(d.commissionParPlacement)) })}
                   </span>
                   <span
                     className={`badge ${pourvus >= d.nbPersonnes ? 'badge-ok' : 'badge-amber'}`}
                   >
-                    {pourvus}/{d.nbPersonnes} pourvus
+                    {t('filled', { a: pourvus, b: d.nbPersonnes })}
                   </span>
                   <Link
                     href={`/recruteur/proposer?demande=${d.id}`}
                     className="btn-sm btn-green"
                   >
-                    ➕ Proposer un candidat
+                    {t('navPropose')}
                   </Link>
                 </div>
               </div>
@@ -78,10 +82,7 @@ export default async function DemandesOuvertesPage() {
           );
         })}
         {demandes.length === 0 && (
-          <div className="card py-8 text-center text-muted">
-            Aucune demande ouverte pour le moment. Vous pouvez proposer des candidats
-            spontanément via «&nbsp;Proposer un candidat&nbsp;».
-          </div>
+          <div className="card py-8 text-center text-muted">{t('noRequests')}</div>
         )}
       </div>
     </div>

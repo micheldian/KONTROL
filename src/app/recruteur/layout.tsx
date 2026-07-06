@@ -1,15 +1,11 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { getSessionUser } from '@/lib/session';
 import LogoutButton from '@/components/LogoutButton';
+import LangSwitcher from '@/components/LangSwitcher';
 
 // Portail recruteur (spec §C) — ne voit jamais : autres recruteurs, vivier, paie.
-
-const NAV = [
-  { href: '/recruteur', label: 'Demandes ouvertes' },
-  { href: '/recruteur/proposer', label: '➕ Proposer un candidat' },
-  { href: '/recruteur/candidats', label: 'Mes candidats' },
-  { href: '/recruteur/gains', label: 'Mes gains' }
-];
+// Trilingue FR/RO/ES (cookie NEXT_LOCALE, drapeaux dans l'en-tête).
 
 export default async function RecruteurLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
@@ -17,6 +13,14 @@ export default async function RecruteurLayout({ children }: { children: React.Re
   if (!user || user.role !== 'RECRUTEUR') {
     return <>{children}</>;
   }
+  const t = await getTranslations('recruiter');
+
+  const nav = [
+    { href: '/recruteur', label: t('navRequests') },
+    { href: '/recruteur/proposer', label: t('navPropose') },
+    { href: '/recruteur/candidats', label: t('navCandidates') },
+    { href: '/recruteur/gains', label: t('navEarnings') }
+  ];
 
   return (
     <div className="min-h-screen">
@@ -24,16 +28,17 @@ export default async function RecruteurLayout({ children }: { children: React.Re
         <div className="mx-auto flex max-w-[1000px] items-center justify-between px-4 py-2.5">
           <Link href="/recruteur" className="text-[17px] font-bold tracking-wider">
             KRON<b className="text-amber">TROL</b>
-            <span className="ml-2 text-[12px] font-normal text-[#A9B5AE]">recruteur</span>
+            <span className="ml-2 text-[12px] font-normal text-[#A9B5AE]">{t('headerTag')}</span>
           </Link>
           <div className="flex items-center gap-3 text-[13px]">
+            <LangSwitcher />
             <span className="hidden sm:inline">{user.name}</span>
             <LogoutButton />
           </div>
         </div>
         <nav className="border-t border-[#243730]">
           <div className="mx-auto flex max-w-[1000px] gap-1 overflow-x-auto px-4 py-1.5 text-[13px]">
-            {NAV.map((n) => (
+            {nav.map((n) => (
               <Link
                 key={n.href}
                 href={n.href}

@@ -5,6 +5,7 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
@@ -23,6 +24,13 @@ const inscriptionSchema = z.object({
 
 /** Inscription publique — compte actif immédiatement, suspendable par l'admin (spec §B). */
 export async function inscrireRecruteur(formData: FormData) {
+  // Langue d'affichage au moment de l'inscription (champ caché posé par la page,
+  // getLocale() en secours) → langue du profil, utilisée ensuite pour les
+  // notifications Telegram/wa.me des demandes + messages d'erreur traduits.
+  const brut = ((formData.get('langueUi') as string) || (await getLocale())).toLowerCase();
+  const locale = ['fr', 'ro', 'es'].includes(brut) ? brut : 'fr';
+  const langue = locale.toUpperCase() as 'FR' | 'RO' | 'ES';
+  const t = await getTranslations({ locale, namespace: 'recruiter' });
   let erreur: string | null = null;
   try {
     const parsed = inscriptionSchema.parse(Object.fromEntries(formData.entries()));
@@ -31,12 +39,12 @@ export async function inscrireRecruteur(formData: FormData) {
 
     // Portail public mono-organisation : première organisation (comme /rejoindre)
     const org = await prisma.organisation.findFirst({ orderBy: { createdAt: 'asc' } });
-    if (!org) throw new Error('Organisation introuvable');
+    if (!org) throw new Error(t('errUnexpected'));
 
     const conflit = await prisma.user.findFirst({
       where: { OR: [{ email }, { telephone }] }
     });
-    if (conflit) throw new Error('Un compte existe déjà avec cet email ou ce téléphone');
+    if (conflit) throw new Error(t('errExists'));
 
     const recruteur = await prisma.user.create({
       data: {
@@ -49,7 +57,7 @@ export async function inscrireRecruteur(formData: FormData) {
         telephone,
         email,
         motDePasseHash: await bcrypt.hash(parsed.motDePasse, 10),
-        langue: 'FR'
+        langue
       }
     });
     await audit({
@@ -63,10 +71,10 @@ export async function inscrireRecruteur(formData: FormData) {
   } catch (e) {
     erreur =
       e instanceof z.ZodError
-        ? 'Formulaire incomplet (mot de passe : 8 caractères minimum)'
+        ? t('errIncomplete')
         : e instanceof Error
           ? e.message
-          : 'Erreur inattendue';
+          : t('errUnexpected');
   }
   redirect(
     erreur
@@ -87,6 +95,11 @@ const propositionSchema = z.object({
 /** Proposition de candidat — sur une demande ou spontanée (spec §C.2). */
 export async function proposerCandidat(formData: FormData) {
   const recruteur = await requireRecruteur();
+  const brutUi = ((formData.get('langueUi') as string) || (await getLocale())).toLowerCase();
+  const t = await getTranslations({
+    locale: ['fr', 'ro', 'es'].includes(brutUi) ? brutUi : 'fr',
+    namespace: 'recruiter'
+  });
   let erreur: string | null = null;
   const demandeIdBrut = (formData.get('demandeId') as string) || '';
 
@@ -99,7 +112,7 @@ export async function proposerCandidat(formData: FormData) {
     const moi = await prisma.user.findFirst({
       where: { id: recruteur.userId, actif: true }
     });
-    if (!moi) throw new Error('Compte recruteur suspendu');
+    if (!moi) throw new Error(t('errSuspended'));
 
     let demandeId: string | null = null;
     if (parsed.demandeId) {
@@ -110,7 +123,7 @@ export async function proposerCandidat(formData: FormData) {
           statut: 'OUVERTE'
         }
       });
-      if (!demande) throw new Error('Cette demande n’est plus ouverte');
+      if (!demande) throw new Error(t('errClosed'));
       demandeId = demande.id;
     }
 
@@ -119,7 +132,7 @@ export async function proposerCandidat(formData: FormData) {
       where: { telephone, organisationId: recruteur.organisationId }
     });
     if (existant && ['ADMIN', 'MANAGER', 'CLIENT', 'RECRUTEUR'].includes(existant.role)) {
-      throw new Error('Ce numéro appartient à un compte interne — proposition impossible');
+      throw new Error(t('errInternal'));
     }
 
     const dejaProposee = await prisma.propositionCandidat.findFirst({
@@ -130,7 +143,7 @@ export async function proposerCandidat(formData: FormData) {
         candidat: { telephone }
       }
     });
-    if (dejaProposee) throw new Error('Vous avez déjà proposé ce candidat (en attente de traitement)');
+    if (dejaProposee) throw new Error(t('errAlreadyProposed'));
 
     let candidatId: string;
     let doublonDetecte = false;
@@ -181,10 +194,10 @@ export async function proposerCandidat(formData: FormData) {
   } catch (e) {
     erreur =
       e instanceof z.ZodError
-        ? 'Formulaire incomplet'
+        ? t('errFormIncomplete')
         : e instanceof Error
           ? e.message
-          : 'Erreur inattendue';
+          : t('errUnexpected');
   }
   redirect(
     erreur

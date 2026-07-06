@@ -3,9 +3,12 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
+import LangSwitcher from '@/components/LangSwitcher';
 
 export default function RecruteurLoginPage() {
+  const t = useTranslations('recruiter');
   const router = useRouter();
   const params = useSearchParams();
   const [email, setEmail] = useState('');
@@ -19,7 +22,7 @@ export default function RecruteurLoginPage() {
     setError(null);
     const res = await signIn('admin-credentials', { email, password, redirect: false });
     if (res?.error) {
-      setError('Email ou mot de passe incorrect (compte suspendu ?)');
+      setError(t('badCredentials'));
       setBusy(false);
     } else {
       router.push('/recruteur');
@@ -29,20 +32,23 @@ export default function RecruteurLoginPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-[420px] flex-col justify-center px-6">
+      <div className="mb-2 flex justify-end">
+        <LangSwitcher />
+      </div>
       <div className="mb-8 text-center text-[24px] font-bold tracking-wider">
         KRON<b className="text-brand">TROL</b>
         <div className="mt-1 text-[13px] font-normal tracking-normal text-muted">
-          Espace recruteurs
+          {t('spaceTitle')}
         </div>
       </div>
       {params.get('inscrit') && (
         <div className="mb-4 rounded-card border-[1.5px] border-[#BFD9C8] bg-[#EFF7F1] px-4 py-3 text-center text-[13.5px] font-semibold text-ok">
-          ✓ Compte créé — connectez-vous
+          {t('accountCreated')}
         </div>
       )}
       <form onSubmit={submit} className="card space-y-4 p-6">
         <div>
-          <label className="label" htmlFor="email">Email</label>
+          <label className="label" htmlFor="email">{t('emailLabel')}</label>
           <input
             id="email"
             type="email"
@@ -54,7 +60,7 @@ export default function RecruteurLoginPage() {
           />
         </div>
         <div>
-          <label className="label" htmlFor="password">Mot de passe</label>
+          <label className="label" htmlFor="password">{t('passwordLabel')}</label>
           <input
             id="password"
             type="password"
@@ -67,14 +73,14 @@ export default function RecruteurLoginPage() {
         </div>
         {error && <p className="text-[13.5px] font-semibold text-warn">{error}</p>}
         <button type="submit" disabled={busy} className="btn btn-green w-full">
-          Se connecter
+          {t('signIn')}
         </button>
       </form>
       <Link
         href="/recruteur/inscription"
         className="mt-6 text-center text-[13px] text-muted underline"
       >
-        Pas encore de compte ? S’inscrire gratuitement
+        {t('noAccount')}
       </Link>
     </main>
   );

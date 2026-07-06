@@ -123,7 +123,10 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       admin (bordure = confirmations équipe). Comptes CLIENT gérés dans Paramètres.
 - [x] **Phase 17 — Module Recruteurs** : rôle RECRUTEUR (inscription publique ouverte
       `/recruteur/inscription`, suspension = `actif:false` bloque le login). Portail
-      `/recruteur` : demandes ouvertes (commission, pourvus X/N), proposer un candidat
+      `/recruteur` **trilingue FR/RO/ES** (namespace `recruiter`, drapeaux, lien
+      pré-langué `?lang=ro|es`, erreurs serveur traduites via champ caché `langueUi`,
+      langue d'inscription → `User.langue` pour les notifications) : demandes ouvertes
+      (commission, pourvus X/N), proposer un candidat
       (sur demande ou spontané, téléphone = clé de dédoublonnage, doublon signalé),
       « Mes candidats » (statuts), « Mes gains » (ticket généré/payé/reste dû). Admin :
       `/admin/demandes` (CRUD + notification Telegram auto + wa.me, template DEMANDE
