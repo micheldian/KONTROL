@@ -33,7 +33,14 @@ export async function majParametres(formData: FormData) {
   Object.assign(parametres, {
     commissionDefaut: numOuDefaut('commissionDefaut', 100),
     delaiRepropositionMois: Math.round(numOuDefaut('delaiRepropositionMois', 12)),
-    delaiAnnulationPlacementJours: Math.round(numOuDefaut('delaiAnnulationPlacementJours', 7))
+    delaiAnnulationPlacementJours: Math.round(numOuDefaut('delaiAnnulationPlacementJours', 7)),
+    // Embauche digitale (phase 18) : lien onboarding, DPAE/TESA, rétention
+    delaiTokenOnboardingJours: Math.round(numOuDefaut('delaiTokenOnboardingJours', 7)),
+    dureeRetentionDocumentsAnnees: Math.round(numOuDefaut('dureeRetentionDocumentsAnnees', 5)),
+    msaNumeroEmployeur: ((formData.get('msaNumeroEmployeur') as string) || '').trim(),
+    siret: ((formData.get('siret') as string) || '').trim(),
+    adresseEtablissement: ((formData.get('adresseEtablissement') as string) || '').trim(),
+    anthropicApiKey: ((formData.get('anthropicApiKey') as string) || '').trim()
   });
 
   await prisma.organisation.update({
@@ -195,6 +202,87 @@ export async function basculerTag(formData: FormData) {
   await prisma.competenceTag.update({
     where: { id },
     data: { actif: !tag.actif }
+  });
+  revalidatePath('/admin/parametres');
+}
+
+// ————— Embauche digitale (phase 18) : modèles de documents + purge —————
+
+const CATEGORIES_MODELE = ['CONTRAT', 'MUTUELLE_ADHESION', 'MUTUELLE_DISPENSE'] as const;
+
+/** Crée ou met à jour un modèle (contrat CDD, bulletins mutuelle) — variables {{cle}}. */
+export async function saveModeleContrat(formData: FormData) {
+  const user = await requireAdminStrict();
+  const id = (formData.get('id') as string) || null;
+  const nom = ((formData.get('nom') as string) || '').trim();
+  const categorie = formData.get('categorie') as (typeof CATEGORIES_MODELE)[number];
+  const contenuTemplate = ((formData.get('contenuTemplate') as string) || '').trim();
+  if (!nom) throw new Error('Nom du modèle obligatoire');
+  if (!CATEGORIES_MODELE.includes(categorie)) throw new Error('Catégorie invalide');
+  if (contenuTemplate.length < 40) throw new Error('Contenu du modèle trop court');
+
+  if (id) {
+    const existant = await prisma.modeleContrat.findFirst({
+      where: { id, organisationId: user.organisationId }
+    });
+    if (!existant) throw new Error('Modèle introuvable');
+    await prisma.modeleContrat.update({
+      where: { id },
+      data: { nom, categorie, contenuTemplate }
+    });
+  } else {
+    await prisma.modeleContrat.create({
+      data: { organisationId: user.organisationId, nom, categorie, contenuTemplate }
+    });
+  }
+  await audit({
+    organisationId: user.organisationId,
+    userId: user.userId,
+    action: id ? 'modele.update' : 'modele.create',
+    entite: 'ModeleContrat',
+    entiteId: id ?? nom
+  });
+  revalidatePath('/admin/parametres');
+}
+
+export async function basculerModeleContrat(formData: FormData) {
+  const user = await requireAdminStrict();
+  const id = formData.get('id') as string;
+  const modele = await prisma.modeleContrat.findFirst({
+    where: { id, organisationId: user.organisationId }
+  });
+  if (!modele) throw new Error('Modèle introuvable');
+  await prisma.modeleContrat.update({ where: { id }, data: { actif: !modele.actif } });
+  revalidatePath('/admin/parametres');
+}
+
+/**
+ * Purge des documents au-delà de la durée de rétention (règle 7) — jamais les
+ * dossiers en cours. Action manuelle ADMIN, volontairement pas de cron.
+ */
+export async function purgerDocumentsAnciens() {
+  const user = await requireAdminStrict();
+  const org = await prisma.organisation.findUnique({ where: { id: user.organisationId } });
+  const p = (org?.parametres as Record<string, unknown>) ?? {};
+  const annees =
+    Number(p.dureeRetentionDocumentsAnnees) > 0 ? Number(p.dureeRetentionDocumentsAnnees) : 5;
+  const seuil = new Date();
+  seuil.setFullYear(seuil.getFullYear() - annees);
+
+  const purge = await prisma.documentOuvrier.deleteMany({
+    where: {
+      organisationId: user.organisationId,
+      uploadeAt: { lt: seuil },
+      OR: [{ dossierId: null }, { dossier: { statut: { not: 'EN_COURS' } } }]
+    }
+  });
+  await audit({
+    organisationId: user.organisationId,
+    userId: user.userId,
+    action: 'document.purge',
+    entite: 'DocumentOuvrier',
+    entiteId: `>${annees}ans`,
+    apres: { supprimes: purge.count, seuil: seuil.toISOString() }
   });
   revalidatePath('/admin/parametres');
 }

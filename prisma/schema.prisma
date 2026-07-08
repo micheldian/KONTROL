@@ -159,6 +159,9 @@ model Organisation {
   propositions        PropositionCandidat[]
   placements          Placement[]
   paiementsCommission PaiementCommission[]
+  dossiersEmbauche    DossierEmbauche[]
+  documentsOuvrier    DocumentOuvrier[]
+  modelesContrat      ModeleContrat[]
 }
 
 model User {
@@ -191,6 +194,15 @@ model User {
   societe            String? // recruteurs : nom d'agence / société
   createdAt          DateTime     @default(now())
 
+  // Embauche digitale (phase 18) — état civil confirmé à l'onboarding
+  adresse                String?
+  numeroSecu             String? // chiffré au repos (lib/documents.ts chiffreChamp)
+  dateNaissance          DateTime? @db.Date
+  lieuNaissance          String?
+  nationalite            String?
+  pieceIdentiteExpireAt  DateTime? @db.Date
+  immatriculationEnCours Boolean   @default(false) // « pas encore immatriculé » → MSA à demander
+
   // Rate-limiting PIN : blocage 15 min après 5 échecs
   pinEchecs       Int       @default(0)
   pinBloqueJusqua DateTime?
@@ -212,6 +224,9 @@ model User {
   placementsEmis      Placement[]           @relation("PlacementsRecruteur")
   placementsRecus     Placement[]           @relation("PlacementsCandidat")
   paiementsCommission PaiementCommission[]
+  dossiersEmbauche    DossierEmbauche[]     @relation("DossiersEmbauche")
+  documents           DocumentOuvrier[]     @relation("DocumentsOuvrier")
+  signatures          SignatureElec[]       @relation("Signatures")
 
   @@index([organisationId, statutProfil])
   @@index([organisationId, role])
@@ -467,7 +482,8 @@ model Logement {
   capacite       Int          @default(1)
   tarifJour      Decimal      @db.Decimal(8, 2)
 
-  sejours SejourLogement[]
+  sejours          SejourLogement[]
+  dossiersEmbauche DossierEmbauche[]
 
   @@index([organisationId])
 }
@@ -673,4 +689,163 @@ model PushSubscription {
   p256dh    String
   auth      String
   createdAt DateTime @default(now())
+}
+
+// ————— Phase 18 — Embauche digitale (onboarding) —————
+
+enum StatutDossierEmbauche {
+  EN_COURS
+  COMPLET
+  FORCE // activé par un ADMIN malgré une checklist incomplète (motif tracé)
+  ANNULE
+}
+
+enum ModeOnboarding {
+  DISTANT
+  KIOSQUE
+  MIXTE
+}
+
+enum TypeChecklist {
+  IDENTITE
+  SECU
+  IBAN
+  MUTUELLE
+  CONTRAT
+  DPAE
+}
+
+enum StatutChecklist {
+  A_FAIRE
+  FAIT
+  FLAG // ex. « immatriculation MSA à demander »
+  NON_BLOQUANT // IBAN absent : recommandé mais pas bloquant
+}
+
+enum TypeDocument {
+  ID_RECTO
+  ID_VERSO
+  CARTE_VITALE
+  RIB
+  CONTRAT_SIGNE
+  MUTUELLE_ADHESION
+  MUTUELLE_DISPENSE
+  DPAE_RECEPISSE
+  AUTRE
+}
+
+enum CategorieModele {
+  CONTRAT
+  MUTUELLE_ADHESION
+  MUTUELLE_DISPENSE
+}
+
+model DossierEmbauche {
+  id             String                @id @default(cuid())
+  organisationId String
+  organisation   Organisation          @relation(fields: [organisationId], references: [id])
+  userId         String
+  user           User                  @relation("DossiersEmbauche", fields: [userId], references: [id])
+  statut         StatutDossierEmbauche @default(EN_COURS)
+  mode           ModeOnboarding        @default(MIXTE)
+
+  modeleContratId String?
+  modeleContrat   ModeleContrat? @relation(fields: [modeleContratId], references: [id])
+  dateDebut       DateTime       @db.Date
+  dateFinPrevue   DateTime?      @db.Date
+  tauxHoraire     Decimal        @db.Decimal(8, 2)
+  logementId      String?
+  logement        Logement?      @relation(fields: [logementId], references: [id])
+
+  // Lien d'onboarding distant (sans compte, expirable)
+  tokenOnboarding String?   @unique
+  tokenExpireAt   DateTime?
+
+  // DPAE niveau 1 : dépôt manuel tracé
+  dpaeNumero   String?
+  dpaeDeposeAt DateTime?
+
+  // Forçage ADMIN (verrou de complétude contourné, motif obligatoire)
+  forceMotif String?
+  forceParId String?
+  forceAt    DateTime?
+
+  annuleMotif String?
+  creeParId   String
+  creeAt      DateTime  @default(now())
+  completAt   DateTime?
+
+  checklist ChecklistItem[]
+  documents DocumentOuvrier[]
+
+  @@index([organisationId, statut])
+  @@index([userId])
+}
+
+model ChecklistItem {
+  id        String          @id @default(cuid())
+  dossierId String
+  dossier   DossierEmbauche @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  type      TypeChecklist
+  statut    StatutChecklist @default(A_FAIRE)
+  detail    String?
+  faitAt    DateTime?
+  faitParId String?
+
+  @@unique([dossierId, type])
+}
+
+model DocumentOuvrier {
+  id             String           @id @default(cuid())
+  organisationId String
+  organisation   Organisation     @relation(fields: [organisationId], references: [id])
+  userId         String
+  user           User             @relation("DocumentsOuvrier", fields: [userId], references: [id])
+  dossierId      String?
+  dossier        DossierEmbauche? @relation(fields: [dossierId], references: [id])
+  type           TypeDocument
+  nomFichier     String
+  mimeType       String
+  taille         Int // octets (avant chiffrement)
+  contenu        Bytes // chiffré AES-256-GCM (lib/documents.ts)
+  hashSha256     String
+  ocrData        Json?
+  expireAt       DateTime?        @db.Date
+  uploadeAt      DateTime         @default(now())
+  uploadeParId   String?
+
+  signature SignatureElec?
+
+  @@index([organisationId, userId])
+  @@index([organisationId, type])
+}
+
+model ModeleContrat {
+  id             String          @id @default(cuid())
+  organisationId String
+  organisation   Organisation    @relation(fields: [organisationId], references: [id])
+  categorie      CategorieModele @default(CONTRAT)
+  nom            String
+  contenuTemplate String // texte avec variables {{prenom}}, {{dateDebut}}…
+  variables      Json            @default("[]")
+  actif          Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+
+  dossiers DossierEmbauche[]
+
+  @@index([organisationId, categorie])
+}
+
+model SignatureElec {
+  id                  String          @id @default(cuid())
+  documentId          String          @unique
+  document            DocumentOuvrier @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  signataireUserId    String
+  signataire          User            @relation("Signatures", fields: [signataireUserId], references: [id])
+  imageSignature      String // PNG dataURL du dessin au doigt
+  horodatage          DateTime        @default(now())
+  ipAdresse           String?
+  appareil            String? // user-agent
+  modeKiosque         Boolean         @default(false)
+  adminAccompagnantId String?
 }

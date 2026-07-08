@@ -14,6 +14,7 @@ import {
   envoyerEtJournaliser,
   telegramToken
 } from '@/lib/messaging/channel';
+import { dossierBloquant, manquants, LIBELLES_CHECKLIST } from '@/lib/embauche';
 
 /** Note 5★ unique — modifiable UNIQUEMENT par ADMIN, jamais visible par l'ouvrier (règle 13). */
 export async function noterProfil(formData: FormData) {
@@ -100,6 +101,18 @@ async function reactiverCoeur(formData: FormData) {
     }
   });
   if (!profil) throw new Error('Profil introuvable ou non réactivable');
+
+  // Verrou de complétude (phase 18, règle 5) : un dossier d'embauche en cours
+  // et incomplet bloque le passage en ACTIF — activation depuis le dossier.
+  const bloquant = await dossierBloquant(user.organisationId, id);
+  if (bloquant) {
+    throw new Error(
+      `Dossier d'embauche incomplet (${manquants(bloquant.checklist)
+        .map((m) => LIBELLES_CHECKLIST[m])
+        .join(', ')}) — activez depuis le dossier ou forcez (ADMIN)`
+    );
+  }
+
   if (pin && !/^\d{4}$/.test(pin)) throw new Error('PIN : 4 chiffres');
   if (!profil.pinHash && !pin) {
     throw new Error('Ce profil n’a pas de PIN — saisissez-en un pour activer l’accès');

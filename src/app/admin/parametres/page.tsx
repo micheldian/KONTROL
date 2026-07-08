@@ -1,13 +1,17 @@
 import { requireAdminStrict } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { templatesParDefaut } from '@/lib/messaging/templates';
+import { VARIABLES_DISPONIBLES } from '@/lib/contrats';
 import {
   majParametres,
   majTemplates,
   creerCompte,
   desactiverCompte,
   ajouterTag,
-  basculerTag
+  basculerTag,
+  saveModeleContrat,
+  basculerModeleContrat,
+  purgerDocumentsAnciens
 } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -20,9 +24,15 @@ const CONTEXTES = [
 ] as const;
 const LANGUES = ['FR', 'RO', 'ES'] as const;
 
+const CATEGORIE_MODELE_LIBELLE: Record<string, string> = {
+  CONTRAT: 'Contrat',
+  MUTUELLE_ADHESION: 'Mutuelle adhésion',
+  MUTUELLE_DISPENSE: 'Mutuelle dispense'
+};
+
 export default async function ParametresPage() {
   const user = await requireAdminStrict();
-  const [org, comptes, tags, clients] = await Promise.all([
+  const [org, comptes, tags, clients, modeles] = await Promise.all([
     prisma.organisation.findUnique({ where: { id: user.organisationId } }),
     prisma.user.findMany({
       where: {
@@ -40,6 +50,10 @@ export default async function ParametresPage() {
       where: { organisationId: user.organisationId },
       select: { id: true, nom: true },
       orderBy: { nom: 'asc' }
+    }),
+    prisma.modeleContrat.findMany({
+      where: { organisationId: user.organisationId },
+      orderBy: [{ categorie: 'asc' }, { createdAt: 'desc' }]
     })
   ]);
   if (!org) return null;
@@ -162,6 +176,76 @@ export default async function ParametresPage() {
             </p>
           </div>
         </div>
+        <h2 className="pt-2 text-[16px] font-bold">Embauche digitale & DPAE (TESA/MSA)</h2>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className="label">N° employeur MSA</label>
+            <input
+              name="msaNumeroEmployeur"
+              defaultValue={(params.msaNumeroEmployeur as string) ?? ''}
+              className="input font-mono text-[13px]"
+            />
+          </div>
+          <div>
+            <label className="label">SIRET</label>
+            <input
+              name="siret"
+              defaultValue={(params.siret as string) ?? ''}
+              className="input font-mono text-[13px]"
+            />
+          </div>
+          <div>
+            <label className="label">Adresse de l’établissement</label>
+            <input
+              name="adresseEtablissement"
+              defaultValue={(params.adresseEtablissement as string) ?? ''}
+              className="input"
+            />
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className="label">Validité du lien d’onboarding (jours)</label>
+            <input
+              name="delaiTokenOnboardingJours"
+              type="number"
+              min={1}
+              defaultValue={
+                Number(params.delaiTokenOnboardingJours) > 0
+                  ? Number(params.delaiTokenOnboardingJours)
+                  : 7
+              }
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="label">Rétention des documents (années)</label>
+            <input
+              name="dureeRetentionDocumentsAnnees"
+              type="number"
+              min={1}
+              defaultValue={
+                Number(params.dureeRetentionDocumentsAnnees) > 0
+                  ? Number(params.dureeRetentionDocumentsAnnees)
+                  : 5
+              }
+              className="input"
+            />
+            <p className="mt-1 text-[12px] text-muted">Durées légales : 5 ans conseillé.</p>
+          </div>
+          <div>
+            <label className="label">Clé API Anthropic — OCR (vide = saisie manuelle)</label>
+            <input
+              name="anthropicApiKey"
+              defaultValue={(params.anthropicApiKey as string) ?? ''}
+              className="input font-mono text-[13px]"
+              placeholder="sk-ant-…"
+            />
+            <p className="mt-1 text-[12px] text-muted">
+              Lecture automatique des pièces d’identité, cartes vitales et RIB.
+            </p>
+          </div>
+        </div>
         <button className="btn-sm btn-green px-5 py-2.5">Enregistrer</button>
       </form>
 
@@ -193,6 +277,76 @@ export default async function ParametresPage() {
         ))}
         <button className="btn-sm btn-green px-5 py-2.5">Enregistrer les modèles</button>
       </form>
+
+      {/* Modèles de documents d'embauche (phase 18) */}
+      <div className="card mb-6 space-y-4 p-5">
+        <h2 className="text-[16px] font-bold">Modèles de documents d’embauche</h2>
+        <p className="text-[12.5px] text-muted">
+          Contrat CDD saisonnier et formulaires mutuelle. Variables :{' '}
+          {VARIABLES_DISPONIBLES.map((v) => `{{${v}}}`).join(' ')} (+ {'{{motifDispense}}'} pour
+          la dispense). Sans modèle actif, les modèles provisoires intégrés sont utilisés.
+        </p>
+        <div className="space-y-1.5">
+          {modeles.map((m) => (
+            <div key={m.id} className="flex flex-wrap items-center gap-2 text-[13.5px]">
+              <span className={`badge ${m.actif ? 'badge-ok' : 'badge-muted'}`}>
+                {CATEGORIE_MODELE_LIBELLE[m.categorie]}
+              </span>
+              <b className="flex-1">{m.nom}</b>
+              <span className="text-[12px] text-muted">
+                {m.contenuTemplate.length} caractères
+              </span>
+              <form action={basculerModeleContrat}>
+                <input type="hidden" name="id" value={m.id} />
+                <button className="btn-sm btn-outline">
+                  {m.actif ? 'Désactiver' : 'Activer'}
+                </button>
+              </form>
+            </div>
+          ))}
+          {modeles.length === 0 && (
+            <p className="text-[13px] text-muted">
+              Aucun modèle personnalisé — les placeholders intégrés sont utilisés. Collez vos
+              vrais documents ci-dessous dès que vous les avez.
+            </p>
+          )}
+        </div>
+        <form action={saveModeleContrat} className="space-y-3 border-t border-line pt-4">
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <label className="label">Nom du modèle *</label>
+              <input name="nom" required className="input" placeholder="Ex. CDD saisonnier 2026" />
+            </div>
+            <div>
+              <label className="label">Catégorie</label>
+              <select name="categorie" className="input">
+                <option value="CONTRAT">Contrat de travail</option>
+                <option value="MUTUELLE_ADHESION">Mutuelle — adhésion</option>
+                <option value="MUTUELLE_DISPENSE">Mutuelle — dispense</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="label">Contenu (texte avec variables {'{{prenom}}'} …) *</label>
+            <textarea
+              name="contenuTemplate"
+              rows={8}
+              required
+              className="input font-mono text-[12px]"
+              placeholder={'CONTRAT DE TRAVAIL…\n{{prenom}} {{nom}}, né·e le {{dateNaissance}}…'}
+            />
+          </div>
+          <button className="btn-sm btn-green">Ajouter le modèle</button>
+        </form>
+        <form action={purgerDocumentsAnciens} className="border-t border-line pt-3">
+          <button
+            className="btn-sm text-warn"
+            title="Supprime définitivement les documents au-delà de la durée de rétention (dossiers en cours exclus) — tracé"
+          >
+            🗑 Purger les documents au-delà de la rétention
+          </button>
+        </form>
+      </div>
 
       {/* Tags de compétences */}
       <div className="card mb-6 p-5">

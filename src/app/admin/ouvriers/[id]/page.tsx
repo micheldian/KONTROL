@@ -8,6 +8,7 @@ import { creerSejour, cloreSejour } from '../../logements/actions';
 import ErreurBanniere from '@/components/admin/ErreurBanniere';
 import { recapMois } from '@/lib/money';
 import { historiqueProfil } from '@/lib/historique';
+import { LIBELLES_DOCUMENT } from '@/lib/documents';
 import { refParcelle } from '@/lib/geo';
 import {
   moisCourant,
@@ -97,6 +98,20 @@ export default async function OuvrierPage({
         orderBy: { nom: 'asc' }
       })
     ]);
+
+  // Coffre-fort documentaire (phase 18) — métadonnées seulement, jamais le contenu
+  const [documents, dossiersEmbauche] = await Promise.all([
+    prisma.documentOuvrier.findMany({
+      where: { organisationId: user.organisationId, userId: ouvrier.id },
+      select: { id: true, type: true, uploadeAt: true, taille: true, hashSha256: true, expireAt: true },
+      orderBy: { uploadeAt: 'desc' }
+    }),
+    prisma.dossierEmbauche.findMany({
+      where: { organisationId: user.organisationId, userId: ouvrier.id },
+      select: { id: true, statut: true, dateDebut: true },
+      orderBy: { creeAt: 'desc' }
+    })
+  ]);
 
   const joursPresence = sejourActuel ? diffJours(ymd(sejourActuel.dateArrivee), today) + 1 : 0;
 
@@ -358,6 +373,60 @@ export default async function OuvrierPage({
           <Link href={`/admin/vivier/${ouvrier.id}`} className="btn-sm btn-outline mt-2.5">
             Profil vivier complet (note, tags) →
           </Link>
+        </div>
+      </div>
+
+      {/* Coffre-fort documentaire (phase 18) — accès journalisé */}
+      <div className="card mb-5 mt-4 p-4">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <h2 className="text-[14px] font-bold">🗄 Coffre-fort documentaire</h2>
+          {!ouvrier.iban && <span className="badge badge-amber">💶 paiement espèces uniquement (pas d’IBAN)</span>}
+          {ouvrier.immatriculationEnCours && (
+            <span className="badge badge-warn">immatriculation MSA à demander</span>
+          )}
+          {ouvrier.pieceIdentiteExpireAt && ouvrier.pieceIdentiteExpireAt < new Date() && (
+            <span className="badge badge-warn">⚠ pièce d’identité expirée</span>
+          )}
+          {documents.length > 0 && (
+            <a href={`/api/documents/zip?user=${ouvrier.id}`} className="btn-sm btn-outline ml-auto">
+              ⬇ Tout télécharger (ZIP)
+            </a>
+          )}
+        </div>
+        {dossiersEmbauche.length > 0 && (
+          <p className="mb-2 text-[12.5px] text-muted">
+            Dossiers d’embauche :{' '}
+            {dossiersEmbauche.map((d, i) => (
+              <Link key={d.id} href={`/admin/embauches/${d.id}`} className="underline">
+                {i > 0 ? ' · ' : ''}
+                {formatDate(ymd(d.dateDebut))} ({d.statut.toLowerCase().replace('_', ' ')})
+              </Link>
+            ))}
+          </p>
+        )}
+        <div className="space-y-1">
+          {documents.map((d) => (
+            <div key={d.id} className="flex flex-wrap items-center gap-2 text-[13px]">
+              <a
+                href={`/api/documents/${d.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold underline"
+              >
+                {LIBELLES_DOCUMENT[d.type]}
+              </a>
+              <span className="text-[12px] text-muted">
+                {formatDate(ymd(d.uploadeAt))} · {(d.taille / 1024).toFixed(0)} Ko
+                {d.expireAt ? ` · expire le ${formatDate(ymd(d.expireAt))}` : ''}
+              </span>
+            </div>
+          ))}
+          {documents.length === 0 && (
+            <p className="text-[13px] text-muted">
+              Aucun document — ils arrivent via le dossier d’embauche (bouton « 🚀 Embaucher »
+              sur le profil vivier).
+            </p>
+          )}
         </div>
       </div>
 

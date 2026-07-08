@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { syntheseDuJour } from '@/lib/alertes';
+import { dpaeUrgente } from '@/lib/dpae';
 import { formatJour, formatEuros, todayParis, dateFromYMD } from '@/lib/dates';
 import { refParcelle } from '@/lib/geo';
 import CarteLectureLoader from '@/components/carte/CarteLectureLoader';
@@ -38,6 +39,26 @@ export default async function AdminDashboard() {
     })
   ]);
   const totalCommissionsDues = Number(commissionsDues._sum.commissionMontant ?? 0);
+
+  // Embauche digitale (phase 18) : dossiers en cours, DPAE avant prise de poste,
+  // pièces d'identité expirant sous 30 jours pour les ACTIFS (règle 6)
+  const dans30j = new Date();
+  dans30j.setDate(dans30j.getDate() + 30);
+  const [dossiersEnCours, piecesExpirantes] = await Promise.all([
+    prisma.dossierEmbauche.findMany({
+      where: { organisationId: user.organisationId, statut: 'EN_COURS' },
+      select: { dateDebut: true, dpaeDeposeAt: true }
+    }),
+    prisma.user.count({
+      where: {
+        organisationId: user.organisationId,
+        statutProfil: 'ACTIF',
+        role: { in: ['OUVRIER', 'CHEF_EQUIPE'] },
+        pieceIdentiteExpireAt: { not: null, lte: dans30j }
+      }
+    })
+  ]);
+  const dpaeUrgentes = dossiersEnCours.filter((d) => dpaeUrgente(d)).length;
 
   // Mini-carte du jour : parcelles des affectations, bordure par statut de confirmation
   const parcellesJour = affectationsJour.flatMap((a) => {
@@ -117,6 +138,21 @@ export default async function AdminDashboard() {
       texte: 'Commissions recruteurs à payer',
       couleur: totalCommissionsDues > 0 ? 'amber' : 'green',
       href: '/admin/recruteurs'
+    },
+    {
+      n: dossiersEnCours.length,
+      texte:
+        dpaeUrgentes > 0
+          ? `Embauches en cours (dont ${dpaeUrgentes} ⚠ DPAE avant prise de poste !)`
+          : 'Embauches en cours (dossiers digitaux)',
+      couleur: dpaeUrgentes > 0 ? 'red' : dossiersEnCours.length > 0 ? 'amber' : 'green',
+      href: '/admin/embauches'
+    },
+    {
+      n: piecesExpirantes,
+      texte: 'Pièces d’identité expirant sous 30 jours (ouvriers actifs)',
+      couleur: piecesExpirantes > 0 ? 'amber' : 'green',
+      href: '/admin/ouvriers'
     }
   ] as const;
 

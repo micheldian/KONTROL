@@ -10,6 +10,7 @@ const NAV: Array<{ href: string; label: string; adminOnly?: boolean }> = [
   { href: '/admin/ouvriers', label: 'Ouvriers' },
   { href: '/admin/vivier', label: 'Vivier' },
   { href: '/admin/candidatures', label: 'Candidatures' },
+  { href: '/admin/embauches', label: 'Embauches' },
   { href: '/admin/demandes', label: 'Demandes MO' },
   { href: '/admin/recruteurs', label: 'Recruteurs' },
   { href: '/admin/clients', label: 'Clients' },

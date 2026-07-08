@@ -140,6 +140,29 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       delaiAnnulationPlacementJours (7), liste noire bloquée, tout audité. Migration base
       existante : `prisma/migration-recruteurs.sql` (déjà appliquée en prod).
 
+- [x] **Phase 18 — Embauche digitale (onboarding)** : bouton « 🚀 Embaucher » (fiche vivier)
+      → mini-formulaire (modèle de contrat, dates, taux, logement → séjour créé) → dossier
+      EN_COURS + checklist 6 items. **Deux modes** : lien sécurisé `/embauche/[token]`
+      (7 jours paramétrables, sans compte, trilingue FR/RO/ES) ET mode kiosque
+      (`/admin/embauches/[id]/kiosque` — même parcours, l'ouvrier signe lui-même, admin
+      accompagnant tracé). Étapes : pièce d'identité (photo compressée client + **OCR
+      vision Claude** si clé `anthropicApiKey`/env, sinon saisie — écran de confirmation
+      obligatoire règle 1, alerte expiration), n° sécu (photo carte vitale/saisie/« pas
+      encore immatriculé » → FLAG MSA), IBAN facultatif (badge « espèces uniquement »),
+      mutuelle adhésion/dispense + motif, contrat (moteur de templates `{{variables}}`,
+      Paramètres → Modèles de documents, placeholders substituables) — **signature au
+      doigt** (canvas) → PDF DejaVu + page de traçabilité (horodatage/appareil/IP/mode/
+      admin) + SHA-256. **DPAE niveau 1** : écran champs TESA/MSA copiables (n° employeur
+      MSA/SIRET/adresse dans Paramètres) + récépissé, alerte si début ≤ demain
+      (`DpaeProvider` isolé pour l'EDI futur). **Verrou règle 5** : ACTIF impossible si
+      checklist incomplète (aussi dans vivier/fiche ouvrier), forçage ADMIN motivé →
+      statut FORCE + bannière rouge. **Coffre-fort** : `DocumentOuvrier` chiffré
+      **AES-256-GCM** (`DOCUMENTS_ENCRYPTION_KEY`, numéro de sécu aussi chiffré),
+      consultations auditées, `/api/documents/[id]`, ZIP par ouvrier + ZIP « contrôle
+      MSA » par période (`/api/documents/zip`, lib/zip.ts pur TS), purge > rétention
+      (Paramètres). 2 cartes dashboard (embauches en cours/DPAE urgente, pièces expirant
+      < 30 j). Migration : `prisma/migration-embauche.sql` (appliquée en prod).
+
 ## Lancer le projet en local
 
 ```bash

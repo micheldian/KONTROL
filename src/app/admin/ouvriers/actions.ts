@@ -58,6 +58,20 @@ export async function saveOuvrier(formData: FormData) {
       where: { id, organisationId: user.organisationId }
     });
     if (!existing) throw new Error('Ouvrier introuvable');
+
+    // Verrou de complétude (phase 18, règle 5) : passage en ACTIF bloqué si un
+    // dossier d'embauche en cours est incomplet — activer depuis le dossier.
+    if (parsed.statutProfil === 'ACTIF' && existing.statutProfil !== 'ACTIF') {
+      const { dossierBloquant, manquants, LIBELLES_CHECKLIST } = await import('@/lib/embauche');
+      const bloquant = await dossierBloquant(user.organisationId, id);
+      if (bloquant) {
+        throw new Error(
+          `Dossier d'embauche incomplet (${manquants(bloquant.checklist)
+            .map((m) => LIBELLES_CHECKLIST[m])
+            .join(', ')}) — activez depuis /admin/embauches ou forcez (ADMIN)`
+        );
+      }
+    }
     await prisma.user.update({ where: { id }, data });
     await audit({
       organisationId: user.organisationId,

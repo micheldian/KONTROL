@@ -9,8 +9,13 @@ const nextConfig = {
   experimental: {
     // Embarque les polices du PDF dans la fonction serverless (Vercel)
     outputFileTracingIncludes: {
-      '/api/clotures/[id]/pdf': ['./public/fonts/**']
-    }
+      '/api/clotures/[id]/pdf': ['./public/fonts/**'],
+      '/embauche/[token]': ['./public/fonts/**'],
+      '/admin/embauches/[id]': ['./public/fonts/**'],
+      '/admin/embauches/[id]/kiosque': ['./public/fonts/**']
+    },
+    // Photos de documents d'embauche (compressées côté client, ≤ 4 Mo)
+    serverActions: { bodySizeLimit: '8mb' }
   },
   async headers() {
     return [

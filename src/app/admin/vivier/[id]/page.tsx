@@ -81,6 +81,15 @@ export default async function ProfilVivierPage({
         </h1>
         <div className="flex gap-2">
           {(profil.statutProfil === 'VIVIER' || profil.statutProfil === 'INACTIF') && (
+            <Link
+              href={`/admin/embauches/nouveau?user=${profil.id}`}
+              className="btn-sm btn-green"
+              title="Embauche digitale : documents, contrat signé, DPAE — puis activation"
+            >
+              🚀 Embaucher
+            </Link>
+          )}
+          {(profil.statutProfil === 'VIVIER' || profil.statutProfil === 'INACTIF') && (
             <form action={reactiverProfil} className="flex items-center gap-1.5">
               <input type="hidden" name="id" value={profil.id} />
               {!profil.pinHash && (
