@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getSessionUser } from '@/lib/session';
 import LogoutButton from '@/components/LogoutButton';
+import ToastActions from '@/components/admin/ToastActions';
 
 const NAV: Array<{ href: string; label: string; adminOnly?: boolean }> = [
   { href: '/admin', label: 'Tableau de bord' },
@@ -67,6 +68,7 @@ export default async function AdminLayout({
         </nav>
       </header>
       <main className="mx-auto max-w-[1200px] px-4 py-6">{children}</main>
+      <ToastActions />
     </div>
   );
 }

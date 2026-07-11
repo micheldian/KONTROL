@@ -5,7 +5,10 @@
 export default function ErreurBanniere({ erreur }: { erreur?: string }) {
   if (!erreur) return null;
   return (
-    <div className="mb-4 rounded-card border-[1.5px] border-[#F3C1A8] bg-[#FFF3EC] px-4 py-3 text-[13.5px] font-semibold text-warn">
+    <div
+      data-banniere-erreur
+      className="mb-4 rounded-card border-[1.5px] border-[#F3C1A8] bg-[#FFF3EC] px-4 py-3 text-[13.5px] font-semibold text-warn"
+    >
       ⚠ {erreur}
     </div>
   );
