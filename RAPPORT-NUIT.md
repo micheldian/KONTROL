@@ -172,3 +172,94 @@ compétences, les modèles de messages, le token Telegram et la clé Pennylane.
 - [ ] Diffuser le lien `/rejoindre` (Facebook, WhatsApp, affiches).
 - [ ] Faire installer la PWA aux ouvriers (Ajouter à l'écran d'accueil) et accepter les notifications.
 - [ ] Vérifier le premier cron (logs Vercel → Crons).
+
+---
+
+## 6. Phase 17 — Module Recruteurs (ajout du 05/07/2026)
+
+### Livré
+| Fonctionnalité (spec Recruteurs §A-G) | État |
+|---|---|
+| B — Rôle RECRUTEUR, inscription publique ouverte `/recruteur/inscription`, suspension (login bloqué) | ✅ |
+| C.1 Demandes ouvertes : titre, dates, région, conditions, commission, pourvus X/N | ✅ |
+| C.2 Proposer un candidat (sur demande ou spontané), téléphone = clé, doublon signalé au recruteur | ✅ |
+| C.3 Mes candidats : statuts en attente / accepté / refusé (+ motif), « 💰 placé » | ✅ |
+| C.4 Mes gains : ticket généré / payé / reste dû, placements datés, historique des paiements | ✅ |
+| D.1 CRUD demandes + notification auto Telegram (template DEMANDE FR/RO/ES) + wa.me par recruteur | ✅ |
+| D.2 Propositions dans /admin/candidatures : badge « via [Recruteur] », doublon, accepter → vivier | ✅ |
+| D.3 /admin/recruteurs : liste (propositions, placements, réussite, dû/payé), fiche, paiement, suspension | ✅ |
+| D.4 Export CSV commissions (`/api/commissions/export`, ; + BOM, filtre ?debut&fin) + 2 cartes dashboard | ✅ |
+| E.1-2 Commission fixe par placement (défaut 100 € dans Paramètres, surchargeable par demande) | ✅ |
+| E.3 Doublon connu jamais commissionné SAUF INACTIF sans activité > 12 mois (paramétrable) | ✅ |
+| E.4 Double proposition → premier recruteur (horodatage) crédité, l'autre refusée automatiquement | ✅ |
+| E.5 Refus / liste noire → aucune commission ; liste noire bloque l'acceptation | ✅ |
+| E.6 Annulation d'un placement ≤ 7 jours (paramétrable), motif obligatoire, commission ANNULÉE | ✅ |
+| E.7-8 Audit complet (proposition, acceptation+raison d'éligibilité, placement, paiement, annulation, suspension) | ✅ |
+| F — Modèle : DemandeMainOeuvre, DemandeCompetence, PropositionCandidat, Placement, PaiementCommission | ✅ |
+
+### Choix d'implémentation
+- Paiement de commission **FIFO** : un paiement marque PAYÉS les placements DUS les plus
+  anciens tant que le montant les couvre entièrement (traçabilité placement → paiement).
+- Candidat proposé = User `role OUVRIER, statutProfil CANDIDAT, actif false, source RECRUTEUR`
+  → réutilise toute la mécanique vivier existante (fiche, tags, historique, liste noire).
+- Un recruteur ne peut pas proposer un numéro appartenant à un compte interne
+  (ADMIN/MANAGER/CLIENT/RECRUTEUR), ni re-proposer un candidat qu'il a déjà en attente.
+- L'acceptation d'un doublon d'un ouvrier ACTIF ne touche pas à son statut (pas de retour
+  vivier) et ne crée pas de placement.
+- Base **déjà migrée en prod** (`prisma/migration-recruteurs.sql`, idempotente à re-jouer).
+
+### E2E vérifié (Chromium, base locale)
+Inscription → login → création de demande → notification (SIMULE) → proposition sur demande
+→ doublon ouvrier actif détecté → proposition spontanée → acceptation des 3 → 2 placements
+(200 € dus, doublon exclu) → annulation motivée d'un placement → paiement 100 € → reste dû 0
+→ gains recruteur à jour → CSV (PAYEE + ANNULEE tracés) → suspension → login refusé. ✅
+
+---
+
+## 7. Phase 18 — Embauche digitale / onboarding (ajout du 08/07/2026)
+
+### Livré (spec KRONTROL-PHASE-15-EMBAUCHE §A-D)
+| Fonctionnalité | État |
+|---|---|
+| B.1 Bouton « Embaucher » fiche vivier → dossier + checklist (contrat, dates, taux, logement→séjour) | ✅ |
+| B.2 Mode distant : lien sécurisé /embauche/[token] (7 j paramétrables, sans compte, FR/RO/ES) | ✅ |
+| B.2 Mode kiosque : parcours déroulé dans le back-office, l'ouvrier signe lui-même, admin accompagnant tracé | ✅ |
+| B.3.1 Pièce d'identité : photos recto/verso compressées, OCR (vision Claude si clé, sinon SIMULE), écran de confirmation OBLIGATOIRE, alerte expiration | ✅ |
+| B.3.2 N° sécu : photo carte vitale (OCR) / saisie / « pas encore immatriculé » → FLAG « immatriculation MSA à demander » | ✅ |
+| B.3.3 IBAN facultatif (OCR RIB ou saisie, validation mod 97) → badge « espèces uniquement » si absent | ✅ |
+| B.3.4 Mutuelle : adhésion / dispense (5 motifs) → formulaire pré-rempli signé (placeholders substituables) | ✅ |
+| B.3.5 Contrat : moteur {{variables}} (Paramètres → Modèles), signature au doigt, PDF + traçabilité + SHA-256 | ✅ |
+| B.3.6 Écran final « Dossier transmis ✓ » dans la langue de l'ouvrier | ✅ |
+| B.4 DPAE niveau 1 : champs TESA/MSA copiables (1 par 1 + tout copier), récépissé + date, alerte début ≤ demain, DpaeProvider isolé | ✅ |
+| B.5 Verrou : ACTIF impossible checklist incomplète (dossier, vivier, fiche ouvrier) ; forçage ADMIN motivé → FORCE + bannière rouge | ✅ |
+| B.6 Coffre-fort : chiffrement AES-256-GCM (fichiers + n° sécu), consultations auditées, ZIP ouvrier + ZIP contrôle MSA, rétention + purge ADMIN | ✅ |
+| D.6 Alertes : pièces d'identité expirant < 30 j (actifs), DPAE urgentes — cartes dashboard | ✅ |
+| D.8 Dossier ANNULE : documents conservés, profil libéré | ✅ |
+
+### Choix d'implémentation
+- **Stockage en base** (bytea chiffré) plutôt qu'un bucket externe : zéro dépendance, photos
+  compressées côté client (~200-600 Ko) ; clé `DOCUMENTS_ENCRYPTION_KEY` (posée sur Vercel),
+  repli dérivé de NEXTAUTH_SECRET.
+- **OCR = provider isolé** (lib/ocr.ts) : clé Anthropic par organisation (Paramètres) ou env ;
+  sans clé le parcours reste 100 % utilisable en saisie manuelle. L'OCR ne REMPLIT que l'écran
+  de confirmation — jamais d'enregistrement direct (règle 1).
+- **Kiosque = même parcours token** : la session back-office présente sur l'appareil est
+  détectée côté serveur → modeKiosque + adminAccompagnantId sur chaque signature (règle 2).
+- **PDF signés** : @react-pdf existant (DejaVu), page de traçabilité (signataire, horodatage
+  Paris, appareil, IP, mode, accompagnant, SHA-256 du contenu) ; hash du PDF final stocké.
+- ZIP en pur TypeScript (STORE — JPEG/PDF déjà compressés), aucune dépendance ajoutée.
+
+### E2E vérifié (Chromium, base locale)
+Embaucher depuis le vivier → verrou réactivation bloqué → parcours distant en roumain
+(photos → OCR simulé → confirmation, sécu chiffrée `enc1:` en base, IBAN sauté, mutuelle
+signée, contrat signé avec taux/identité injectés) → « Dosar trimis ✓ » → checklist 5/6 →
+DPAE copiable + récépissé → COMPLET → activation + PIN → badge « espèces uniquement »,
+coffre-fort sur la fiche, ZIP ouvrier + ZIP MSA valides (PK), cartes dashboard, token
+invalide → écran propre. Un bug réel attrapé par l'E2E (champs pré-remplis non soumis) et
+corrigé. ✅
+
+### À fournir par Michel (non bloquant — section F de la spec)
+- [ ] Modèle(s) de contrat CDD saisonnier définitifs → coller dans Paramètres → Modèles.
+- [ ] Formulaires mutuelle officiels (adhésion + dispense).
+- [ ] N° employeur MSA + SIRET + adresse établissement (Paramètres → Embauche digitale).
+- [ ] Clé API Anthropic pour activer l'OCR (sinon saisie manuelle).

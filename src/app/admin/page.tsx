@@ -2,13 +2,17 @@ import Link from 'next/link';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { syntheseDuJour } from '@/lib/alertes';
-import { formatJour, formatEuros } from '@/lib/dates';
+import { dpaeUrgente } from '@/lib/dpae';
+import { formatJour, formatEuros, todayParis, dateFromYMD } from '@/lib/dates';
+import { refParcelle } from '@/lib/geo';
+import CarteLectureLoader from '@/components/carte/CarteLectureLoader';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
   const user = await requireAdmin();
-  const [org, nbOuvriers, synthese] = await Promise.all([
+  const [org, nbOuvriers, synthese, affectationsJour, propositionsEnAttente, commissionsDues] =
+    await Promise.all([
     prisma.organisation.findUnique({ where: { id: user.organisationId } }),
     prisma.user.count({
       where: {
@@ -17,8 +21,62 @@ export default async function AdminDashboard() {
         role: { in: ['OUVRIER', 'CHEF_EQUIPE'] }
       }
     }),
-    syntheseDuJour(user.organisationId)
+    syntheseDuJour(user.organisationId),
+    prisma.affectation.findMany({
+      where: { organisationId: user.organisationId, date: dateFromYMD(todayParis()) },
+      include: {
+        mission: { include: { client: { select: { nom: true, couleur: true } } } },
+        parcelles: { include: { parcelle: true } },
+        ouvriers: { select: { confirme: true } }
+      }
+    }),
+    prisma.propositionCandidat.count({
+      where: { organisationId: user.organisationId, statut: 'PROPOSEE' }
+    }),
+    prisma.placement.aggregate({
+      where: { organisationId: user.organisationId, commissionStatut: 'DUE' },
+      _sum: { commissionMontant: true }
+    })
   ]);
+  const totalCommissionsDues = Number(commissionsDues._sum.commissionMontant ?? 0);
+
+  // Embauche digitale (phase 18) : dossiers en cours, DPAE avant prise de poste,
+  // pièces d'identité expirant sous 30 jours pour les ACTIFS (règle 6)
+  const dans30j = new Date();
+  dans30j.setDate(dans30j.getDate() + 30);
+  const [dossiersEnCours, piecesExpirantes] = await Promise.all([
+    prisma.dossierEmbauche.findMany({
+      where: { organisationId: user.organisationId, statut: 'EN_COURS' },
+      select: { dateDebut: true, dpaeDeposeAt: true }
+    }),
+    prisma.user.count({
+      where: {
+        organisationId: user.organisationId,
+        statutProfil: 'ACTIF',
+        role: { in: ['OUVRIER', 'CHEF_EQUIPE'] },
+        pieceIdentiteExpireAt: { not: null, lte: dans30j }
+      }
+    })
+  ]);
+  const dpaeUrgentes = dossiersEnCours.filter((d) => dpaeUrgente(d)).length;
+
+  // Mini-carte du jour : parcelles des affectations, bordure par statut de confirmation
+  const parcellesJour = affectationsJour.flatMap((a) => {
+    const total = a.ouvriers.length;
+    const confirmes = a.ouvriers.filter((o) => o.confirme).length;
+    const bordure = total > 0 && confirmes === total ? '#2E7D32' : '#F59E0B';
+    return a.parcelles.map((ap) => ({
+      id: `${a.id}-${ap.parcelleId}`,
+      ref: refParcelle(ap.parcelle),
+      sousTitre: `${a.mission.client.nom} · ${a.heureDebut}`,
+      statutLibelle: `Confirmations : ${confirmes}/${total}`,
+      couleur: a.mission.client.couleur,
+      bordure,
+      geometry: ap.parcelle.geometry,
+      centroidLat: ap.parcelle.centroidLat,
+      centroidLng: ap.parcelle.centroidLng
+    }));
+  });
 
   const alertes = [
     {
@@ -68,6 +126,33 @@ export default async function AdminDashboard() {
             ? 'amber'
             : 'green',
       href: '/admin/candidatures'
+    },
+    {
+      n: propositionsEnAttente,
+      texte: 'Propositions de recruteurs à traiter',
+      couleur: propositionsEnAttente > 0 ? 'amber' : 'green',
+      href: '/admin/candidatures'
+    },
+    {
+      n: formatEuros(totalCommissionsDues),
+      texte: 'Commissions recruteurs à payer',
+      couleur: totalCommissionsDues > 0 ? 'amber' : 'green',
+      href: '/admin/recruteurs'
+    },
+    {
+      n: dossiersEnCours.length,
+      texte:
+        dpaeUrgentes > 0
+          ? `Embauches en cours (dont ${dpaeUrgentes} ⚠ DPAE avant prise de poste !)`
+          : 'Embauches en cours (dossiers digitaux)',
+      couleur: dpaeUrgentes > 0 ? 'red' : dossiersEnCours.length > 0 ? 'amber' : 'green',
+      href: '/admin/embauches'
+    },
+    {
+      n: piecesExpirantes,
+      texte: 'Pièces d’identité expirant sous 30 jours (ouvriers actifs)',
+      couleur: piecesExpirantes > 0 ? 'amber' : 'green',
+      href: '/admin/ouvriers'
     }
   ] as const;
 
@@ -99,6 +184,21 @@ export default async function AdminDashboard() {
           </Link>
         ))}
       </div>
+
+      {parcellesJour.some((p) => p.geometry) && (
+        <>
+          <h2 className="mb-2 mt-7 text-[16px] font-bold">
+            🗺 Parcelles du jour
+            <span className="ml-2 text-[12.5px] font-normal text-muted">
+              bordure verte = équipe confirmée, orange = en attente ·{' '}
+              <Link href="/admin/carte" className="underline">
+                carte complète
+              </Link>
+            </span>
+          </h2>
+          <CarteLectureLoader parcelles={parcellesJour} hauteur="320px" />
+        </>
+      )}
 
       {synthese.sansAffectation.length > 0 && (
         <>

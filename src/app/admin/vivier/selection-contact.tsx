@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import Link from 'next/link';
+import { reactiverProfilDepuisListe, remettreAuVivierDepuisListe } from './actions';
 
 type Profil = {
   id: string;
@@ -14,6 +15,7 @@ type Profil = {
   derniereSaison: number | null;
   telegramConnecte: boolean;
   listeNoire: boolean;
+  aPin: boolean;
 };
 
 function Etoiles({ note }: { note: number | null }) {
@@ -47,10 +49,52 @@ export default function SelectionContact({
   lienTriSaison: string;
 }) {
   const [selection, setSelection] = useState<string[]>([]);
+  const [pinPour, setPinPour] = useState<string | null>(null); // profil sans PIN : mini-saisie
+  const [pin, setPin] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
   const selectionnables = profils.filter((p) => !p.listeNoire);
 
   function basculer(id: string) {
     setSelection((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  }
+
+  /** VIVIER/INACTIF → ouvrier ACTIF (PIN demandé s'il n'en a pas). */
+  function versActifs(p: Profil) {
+    if (!p.aPin && pinPour !== p.id) {
+      setPinPour(p.id);
+      setPin('');
+      return;
+    }
+    if (!p.aPin && !/^\d{4}$/.test(pin)) {
+      setMessage(`${p.nom} : saisissez un PIN à 4 chiffres pour activer son accès.`);
+      return;
+    }
+    const fd = new FormData();
+    fd.set('id', p.id);
+    if (!p.aPin) fd.set('pin', pin);
+    setMessage(null);
+    startTransition(async () => {
+      const r = await reactiverProfilDepuisListe(fd);
+      if (r.ok) {
+        setPinPour(null);
+        setMessage(`✓ ${p.nom} est maintenant dans vos ouvriers actifs.`);
+      } else {
+        setMessage(r.erreur ?? 'Erreur');
+      }
+    });
+  }
+
+  /** ACTIF → retour au vivier (fin de mission). */
+  function versVivier(p: Profil) {
+    if (!window.confirm(`Remettre ${p.nom} au vivier ? Son accès au portail sera coupé (historique et PIN conservés).`)) return;
+    const fd = new FormData();
+    fd.set('id', p.id);
+    setMessage(null);
+    startTransition(async () => {
+      const r = await remettreAuVivierDepuisListe(fd);
+      setMessage(r.ok ? `✓ ${p.nom} est de retour au vivier.` : r.erreur ?? 'Erreur');
+    });
   }
 
   return (
@@ -77,6 +121,11 @@ export default function SelectionContact({
           >
             💬 Contacter la sélection ({selection.length})
           </Link>
+        )}
+        {message && (
+          <span className={`badge ${message.startsWith('✓') ? 'badge-ok' : 'badge-warn'}`}>
+            {message}
+          </span>
         )}
       </div>
 
@@ -145,9 +194,44 @@ export default function SelectionContact({
                   </span>
                 </td>
                 <td className="text-right">
-                  <Link href={`/admin/vivier/${p.id}`} className="btn-sm btn-outline">
-                    Fiche
-                  </Link>
+                  <div className="flex items-center justify-end gap-1.5">
+                    {(p.statut === 'VIVIER' || p.statut === 'INACTIF') && (
+                      <>
+                        {pinPour === p.id && !p.aPin && (
+                          <input
+                            value={pin}
+                            onChange={(e) => setPin(e.target.value)}
+                            placeholder="PIN"
+                            inputMode="numeric"
+                            maxLength={4}
+                            className="input w-[64px] py-1 text-center font-mono text-[13px]"
+                            autoFocus
+                          />
+                        )}
+                        <button
+                          onClick={() => versActifs(p)}
+                          disabled={pending}
+                          className="btn-sm btn-green"
+                          title="Passer dans les ouvriers actifs (accès portail PIN)"
+                        >
+                          ➕ Ouvrier
+                        </button>
+                      </>
+                    )}
+                    {p.statut === 'ACTIF' && (
+                      <button
+                        onClick={() => versVivier(p)}
+                        disabled={pending}
+                        className="btn-sm btn-outline"
+                        title="Fin de mission : retour au vivier (historique conservé)"
+                      >
+                        ↩ Vivier
+                      </button>
+                    )}
+                    <Link href={`/admin/vivier/${p.id}`} className="btn-sm btn-outline">
+                      Fiche
+                    </Link>
+                  </div>
                 </td>
               </tr>
             ))}

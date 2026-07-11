@@ -35,7 +35,7 @@ export default function AdminLoginPage() {
       <div className="mb-8 text-center text-[24px] font-bold tracking-wider">
         KRON<b className="text-brand">TROL</b>
         <div className="mt-1 text-[13px] font-normal tracking-normal text-muted">
-          Back-office · ADMIN & RH
+          Back-office · ADMIN &amp; MANAGER
         </div>
       </div>
       <form onSubmit={submit} className="card space-y-4 p-6">

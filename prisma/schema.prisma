@@ -12,7 +12,9 @@ datasource db {
 
 enum Role {
   ADMIN
-  RH
+  MANAGER
+  CLIENT
+  RECRUTEUR
   CHEF_EQUIPE
   OUVRIER
 }
@@ -35,6 +37,7 @@ enum SourceProfil {
   PORTAIL
   MANUEL
   IMPORT
+  RECRUTEUR
 }
 
 enum StatutCandidature {
@@ -62,6 +65,7 @@ enum ContexteMessage {
   AFFECTATION
   RECAP
   VIVIER
+  DEMANDE
   AUTRE
 }
 
@@ -95,46 +99,87 @@ enum StatutCloture {
   ROUVERTE
 }
 
-model Organisation {
-  id              String   @id @default(cuid())
-  nom             String
-  tarifHoraireBase Decimal @default(12.5) @db.Decimal(8, 2)
-  // parametres : regleDepartLogementInclus, templates de messages, telegramBotToken, pennylaneApiKey…
-  parametres      Json     @default("{}")
-  createdAt       DateTime @default(now())
+enum ParcelleSource {
+  MANUEL
+  IMPORT_REFERENCE
+  IMPORT_POINT
+  IMPORT_GEOMETRIE
+}
 
-  users          User[]
-  clients        Client[]
-  missions       Mission[]
-  affectations   Affectation[]
-  creneaux       CreneauHeures[]
-  acomptes       Acompte[]
-  retenues       Retenue[]
-  logements      Logement[]
-  clotures       ClotureMois[]
-  factures       FactureClient[]
-  auditLogs      AuditLog[]
-  competenceTags CompetenceTag[]
-  candidatures   Candidature[]
-  envois         EnvoiMessage[]
+enum StatutDemande {
+  OUVERTE
+  POURVUE
+  FERMEE
+}
+
+enum StatutProposition {
+  PROPOSEE
+  ACCEPTEE
+  REFUSEE
+}
+
+enum StatutCommission {
+  DUE
+  PAYEE
+  ANNULEE
+}
+
+enum ImportStatut {
+  EN_ATTENTE
+  EN_COURS
+  TERMINE
+  ECHEC
+}
+
+model Organisation {
+  id               String   @id @default(cuid())
+  nom              String
+  tarifHoraireBase Decimal  @default(12.5) @db.Decimal(8, 2)
+  // parametres : regleDepartLogementInclus, templates de messages, telegramBotToken, pennylaneApiKey…
+  parametres       Json     @default("{}")
+  createdAt        DateTime @default(now())
+
+  users               User[]
+  clients             Client[]
+  missions            Mission[]
+  affectations        Affectation[]
+  creneaux            CreneauHeures[]
+  acomptes            Acompte[]
+  retenues            Retenue[]
+  logements           Logement[]
+  clotures            ClotureMois[]
+  factures            FactureClient[]
+  auditLogs           AuditLog[]
+  competenceTags      CompetenceTag[]
+  candidatures        Candidature[]
+  envois              EnvoiMessage[]
+  parcelles           Parcelle[]
+  importBatches       ImportBatch[]
+  demandes            DemandeMainOeuvre[]
+  propositions        PropositionCandidat[]
+  placements          Placement[]
+  paiementsCommission PaiementCommission[]
+  dossiersEmbauche    DossierEmbauche[]
+  documentsOuvrier    DocumentOuvrier[]
+  modelesContrat      ModeleContrat[]
 }
 
 model User {
-  id                 String        @id @default(cuid())
+  id                 String       @id @default(cuid())
   organisationId     String
-  organisation       Organisation  @relation(fields: [organisationId], references: [id])
-  role               Role          @default(OUVRIER)
-  statutProfil       StatutProfil  @default(ACTIF)
+  organisation       Organisation @relation(fields: [organisationId], references: [id])
+  role               Role         @default(OUVRIER)
+  statutProfil       StatutProfil @default(ACTIF)
   nom                String
   prenom             String
-  telephone          String        @unique
-  email              String?       @unique
+  telephone          String       @unique
+  email              String?      @unique
   pinHash            String?
   motDePasseHash     String?
-  langue             Langue        @default(FR)
-  tauxHoraire        Decimal?      @db.Decimal(8, 2)
+  langue             Langue       @default(FR)
+  tauxHoraire        Decimal?     @db.Decimal(8, 2)
   iban               String?
-  estChefEquipe      Boolean       @default(false)
+  estChefEquipe      Boolean      @default(false)
   note               Int? // 1-5, modifiable uniquement par ADMIN, jamais visible ouvrier
   noteCommentaire    String?
   experienceDeclaree String?
@@ -142,9 +187,21 @@ model User {
   listeNoireAt       DateTime?
   listeNoireParId    String?
   notesInternes      String?
-  source             SourceProfil  @default(MANUEL)
-  actif              Boolean       @default(true)
-  createdAt          DateTime      @default(now())
+  source             SourceProfil @default(MANUEL)
+  actif              Boolean      @default(true)
+  clientId           String? // rattachement à un Client si role = CLIENT (portail client)
+  client             Client?      @relation(fields: [clientId], references: [id])
+  societe            String? // recruteurs : nom d'agence / société
+  createdAt          DateTime     @default(now())
+
+  // Embauche digitale (phase 18) — état civil confirmé à l'onboarding
+  adresse                String?
+  numeroSecu             String? // chiffré au repos (lib/documents.ts chiffreChamp)
+  dateNaissance          DateTime? @db.Date
+  lieuNaissance          String?
+  nationalite            String?
+  pieceIdentiteExpireAt  DateTime? @db.Date
+  immatriculationEnCours Boolean   @default(false) // « pas encore immatriculé » → MSA à demander
 
   // Rate-limiting PIN : blocage 15 min après 5 échecs
   pinEchecs       Int       @default(0)
@@ -152,16 +209,24 @@ model User {
 
   telegramChatId String?
 
-  competences        UserCompetence[]
+  competences         UserCompetence[]
   affectationsOuvrier AffectationOuvrier[]
-  creneaux           CreneauHeures[]      @relation("CreneauxOuvrier")
-  acomptes           Acompte[]
-  retenues           Retenue[]
-  sejours            SejourLogement[]
-  clotures           ClotureMois[]
-  candidatures       Candidature[]
-  envoisRecus        EnvoiMessage[]
-  pushSubscriptions  PushSubscription[]
+  creneaux            CreneauHeures[]       @relation("CreneauxOuvrier")
+  acomptes            Acompte[]
+  retenues            Retenue[]
+  sejours             SejourLogement[]
+  clotures            ClotureMois[]
+  candidatures        Candidature[]
+  envoisRecus         EnvoiMessage[]
+  pushSubscriptions   PushSubscription[]
+  propositionsEmises  PropositionCandidat[] @relation("PropositionsRecruteur")
+  propositionsRecues  PropositionCandidat[] @relation("PropositionsCandidat")
+  placementsEmis      Placement[]           @relation("PlacementsRecruteur")
+  placementsRecus     Placement[]           @relation("PlacementsCandidat")
+  paiementsCommission PaiementCommission[]
+  dossiersEmbauche    DossierEmbauche[]     @relation("DossiersEmbauche")
+  documents           DocumentOuvrier[]     @relation("DocumentsOuvrier")
+  signatures          SignatureElec[]       @relation("Signatures")
 
   @@index([organisationId, statutProfil])
   @@index([organisationId, role])
@@ -174,7 +239,8 @@ model CompetenceTag {
   libelle        String
   actif          Boolean      @default(true)
 
-  users UserCompetence[]
+  users    UserCompetence[]
+  demandes DemandeCompetence[]
 
   @@unique([organisationId, libelle])
 }
@@ -205,20 +271,25 @@ model Candidature {
 }
 
 model Client {
-  id                   String       @id @default(cuid())
-  organisationId       String
-  organisation         Organisation @relation(fields: [organisationId], references: [id])
-  nom                  String
-  contact              String?
-  telephone            String?
-  email                String?
-  adresse              String?
-  pennylaneCustomerId  String?
-  notes                String?
-  createdAt            DateTime     @default(now())
+  id                    String       @id @default(cuid())
+  organisationId        String
+  organisation          Organisation @relation(fields: [organisationId], references: [id])
+  nom                   String
+  contact               String?
+  telephone             String?
+  email                 String?
+  adresse               String?
+  couleur               String       @default("#FF5722") // affichage carte
+  afficherTarifAuClient Boolean      @default(false) // portail client : montrer le tarif de SA mission
+  pennylaneCustomerId   String?
+  notes                 String?
+  createdAt             DateTime     @default(now())
 
-  missions Mission[]
+  missions  Mission[]
+  parcelles Parcelle[]
+  users     User[] // comptes CLIENT (portail)
 
+  @@unique([organisationId, nom]) // dédoublonnage à l'import
   @@index([organisationId])
 }
 
@@ -238,7 +309,6 @@ model Mission {
   statut          StatutMission   @default(ACTIVE)
   notes           String?
 
-  parcelles    Parcelle[]
   affectations Affectation[]
   creneaux     CreneauHeures[]
   factures     FactureClient[]
@@ -246,40 +316,69 @@ model Mission {
   @@index([organisationId, statut])
 }
 
+// Règle 15 (V3) : la parcelle appartient au CLIENT (pas à la mission) →
+// historique multi-saisons par parcelle. Géométrie cadastrale IGN en GeoJSON.
 model Parcelle {
-  id           String  @id @default(cuid())
-  missionId    String
-  mission      Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  adresse      String
-  lat          Float?
-  lng          Float?
-  instructions String?
+  id             String         @id @default(cuid())
+  organisationId String
+  organisation   Organisation   @relation(fields: [organisationId], references: [id])
+  clientId       String
+  client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  codeInsee      String?
+  commune        String?
+  section        String?
+  numero         String?
+  geometry       Json? // GeoJSON MultiPolygon (nullable : adresse simple possible)
+  centroidLat    Float?
+  centroidLng    Float?
+  surfaceM2      Float? // contenance IGN
+  adresse        String? // fallback si pas de géométrie cadastrale
+  cepage         String?
+  millesime      Int?
+  instructions   String?
+  notes          String?
+  source         ParcelleSource @default(MANUEL)
+  createdAt      DateTime       @default(now())
 
-  affectations Affectation[]
+  affectations AffectationParcelle[]
+
+  @@unique([codeInsee, section, numero, clientId]) // anti-doublon import
+  @@index([centroidLat, centroidLng]) // chargement carte par viewport
+  @@index([organisationId])
+  @@index([clientId])
 }
 
 model Affectation {
-  id                  String       @id @default(cuid())
-  organisationId      String
-  organisation        Organisation @relation(fields: [organisationId], references: [id])
-  date                DateTime     @db.Date
-  missionId           String
-  mission             Mission      @relation(fields: [missionId], references: [id])
-  parcelleId          String?
-  parcelle            Parcelle?    @relation(fields: [parcelleId], references: [id])
-  heureDebut          String // "HH:MM"
-  heureFinPrevue      String?
-  pauseMinutesPrevue  Int?
-  chefEquipeId        String?
-  instructions        String?
-  publieAt            DateTime?
-  createdAt           DateTime     @default(now())
+  id                 String       @id @default(cuid())
+  organisationId     String
+  organisation       Organisation @relation(fields: [organisationId], references: [id])
+  date               DateTime     @db.Date
+  missionId          String
+  mission            Mission      @relation(fields: [missionId], references: [id])
+  heureDebut         String // "HH:MM"
+  heureFinPrevue     String?
+  pauseMinutesPrevue Int?
+  chefEquipeId       String?
+  instructions       String?
+  publieAt           DateTime?
+  createdAt          DateTime     @default(now())
 
-  ouvriers AffectationOuvrier[]
-  creneaux CreneauHeures[]
-  envois   EnvoiMessage[]
+  parcelles AffectationParcelle[] // multi-parcelles (V3)
+  ouvriers  AffectationOuvrier[]
+  creneaux  CreneauHeures[]
+  envois    EnvoiMessage[]
 
   @@index([organisationId, date])
+}
+
+model AffectationParcelle {
+  affectationId String
+  affectation   Affectation @relation(fields: [affectationId], references: [id], onDelete: Cascade)
+  parcelleId    String
+  parcelle      Parcelle    @relation(fields: [parcelleId], references: [id], onDelete: Cascade)
+
+  @@id([affectationId, parcelleId])
+  @@index([parcelleId])
 }
 
 model AffectationOuvrier {
@@ -383,7 +482,8 @@ model Logement {
   capacite       Int          @default(1)
   tarifJour      Decimal      @db.Decimal(8, 2)
 
-  sejours SejourLogement[]
+  sejours          SejourLogement[]
+  dossiersEmbauche DossierEmbauche[]
 
   @@index([organisationId])
 }
@@ -459,6 +559,128 @@ model AuditLog {
   @@index([organisationId, entite, entiteId])
 }
 
+// ─── Module Recruteurs (phase 17) ────────────────────────────────────────────
+// L'organisation publie des demandes de main-d'œuvre ; des recruteurs externes
+// proposent des candidats ; chaque placement accepté vaut une commission fixe.
+
+model DemandeMainOeuvre {
+  id                     String        @id @default(cuid())
+  organisationId         String
+  organisation           Organisation  @relation(fields: [organisationId], references: [id])
+  titre                  String
+  nbPersonnes            Int
+  dateDebut              DateTime      @db.Date
+  dateFin                DateTime?     @db.Date
+  region                 String?
+  description            String?
+  conditions             String? // salaire indicatif, logement fourni…
+  commissionParPlacement Decimal       @db.Decimal(8, 2)
+  statut                 StatutDemande @default(OUVERTE)
+  creeParId              String
+  creeAt                 DateTime      @default(now())
+
+  competences  DemandeCompetence[]
+  propositions PropositionCandidat[]
+  placements   Placement[]
+
+  @@index([organisationId, statut])
+}
+
+model DemandeCompetence {
+  id        String            @id @default(cuid())
+  demandeId String
+  demande   DemandeMainOeuvre @relation(fields: [demandeId], references: [id], onDelete: Cascade)
+  tagId     String
+  tag       CompetenceTag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([demandeId, tagId])
+}
+
+model PropositionCandidat {
+  id             String             @id @default(cuid())
+  organisationId String
+  organisation   Organisation       @relation(fields: [organisationId], references: [id])
+  demandeId      String? // null = proposition spontanée
+  demande        DemandeMainOeuvre? @relation(fields: [demandeId], references: [id])
+  recruteurId    String
+  recruteur      User               @relation("PropositionsRecruteur", fields: [recruteurId], references: [id])
+  candidatUserId String
+  candidat       User               @relation("PropositionsCandidat", fields: [candidatUserId], references: [id])
+  statut         StatutProposition  @default(PROPOSEE)
+  motifRefus     String?
+  doublonDetecte Boolean            @default(false) // téléphone déjà connu à la proposition
+  creeAt         DateTime           @default(now())
+  traiteParId    String?
+  traiteAt       DateTime?
+
+  placement Placement?
+
+  @@index([organisationId, statut])
+  @@index([recruteurId])
+  @@index([candidatUserId])
+}
+
+model Placement {
+  id                String              @id @default(cuid())
+  organisationId    String
+  organisation      Organisation        @relation(fields: [organisationId], references: [id])
+  propositionId     String              @unique
+  proposition       PropositionCandidat @relation(fields: [propositionId], references: [id])
+  recruteurId       String
+  recruteur         User                @relation("PlacementsRecruteur", fields: [recruteurId], references: [id])
+  candidatUserId    String
+  candidat          User                @relation("PlacementsCandidat", fields: [candidatUserId], references: [id])
+  demandeId         String?
+  demande           DemandeMainOeuvre?  @relation(fields: [demandeId], references: [id])
+  commissionMontant Decimal             @db.Decimal(8, 2)
+  commissionStatut  StatutCommission    @default(DUE)
+  motifAnnulation   String?
+  placeAt           DateTime            @default(now())
+  annuleAt          DateTime?
+  paiementId        String?
+  paiement          PaiementCommission? @relation(fields: [paiementId], references: [id])
+
+  @@index([organisationId, commissionStatut])
+  @@index([recruteurId])
+}
+
+model PaiementCommission {
+  id             String       @id @default(cuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id])
+  recruteurId    String
+  recruteur      User         @relation(fields: [recruteurId], references: [id])
+  montant        Decimal      @db.Decimal(10, 2)
+  date           DateTime     @db.Date
+  mode           ModePaiement
+  note           String?
+  creeAt         DateTime     @default(now())
+
+  placements Placement[] // placements couverts (marquage FIFO)
+
+  @@index([organisationId, recruteurId])
+}
+
+// Import de masse clients + parcelles (§5.14) — traitement par lots résumable.
+model ImportBatch {
+  id                String       @id @default(cuid())
+  organisationId    String
+  organisation      Organisation @relation(fields: [organisationId], references: [id])
+  nomFichier        String
+  statut            ImportStatut @default(EN_ATTENTE)
+  totalLignes       Int          @default(0)
+  lignesTraitees    Int          @default(0)
+  clientsCrees      Int          @default(0)
+  parcellesCreees   Int          @default(0)
+  parcellesIgnorees Int          @default(0)
+  erreurs           Json? // [{ligne, raison, donnees}]
+  mapping           Json? // correspondance colonnes fichier -> champs cibles
+  payload           Json? // lignes parsées en attente de traitement
+  createdAt         DateTime     @default(now())
+
+  @@index([organisationId])
+}
+
 model PushSubscription {
   id        String   @id @default(cuid())
   userId    String
@@ -467,4 +689,163 @@ model PushSubscription {
   p256dh    String
   auth      String
   createdAt DateTime @default(now())
+}
+
+// ————— Phase 18 — Embauche digitale (onboarding) —————
+
+enum StatutDossierEmbauche {
+  EN_COURS
+  COMPLET
+  FORCE // activé par un ADMIN malgré une checklist incomplète (motif tracé)
+  ANNULE
+}
+
+enum ModeOnboarding {
+  DISTANT
+  KIOSQUE
+  MIXTE
+}
+
+enum TypeChecklist {
+  IDENTITE
+  SECU
+  IBAN
+  MUTUELLE
+  CONTRAT
+  DPAE
+}
+
+enum StatutChecklist {
+  A_FAIRE
+  FAIT
+  FLAG // ex. « immatriculation MSA à demander »
+  NON_BLOQUANT // IBAN absent : recommandé mais pas bloquant
+}
+
+enum TypeDocument {
+  ID_RECTO
+  ID_VERSO
+  CARTE_VITALE
+  RIB
+  CONTRAT_SIGNE
+  MUTUELLE_ADHESION
+  MUTUELLE_DISPENSE
+  DPAE_RECEPISSE
+  AUTRE
+}
+
+enum CategorieModele {
+  CONTRAT
+  MUTUELLE_ADHESION
+  MUTUELLE_DISPENSE
+}
+
+model DossierEmbauche {
+  id             String                @id @default(cuid())
+  organisationId String
+  organisation   Organisation          @relation(fields: [organisationId], references: [id])
+  userId         String
+  user           User                  @relation("DossiersEmbauche", fields: [userId], references: [id])
+  statut         StatutDossierEmbauche @default(EN_COURS)
+  mode           ModeOnboarding        @default(MIXTE)
+
+  modeleContratId String?
+  modeleContrat   ModeleContrat? @relation(fields: [modeleContratId], references: [id])
+  dateDebut       DateTime       @db.Date
+  dateFinPrevue   DateTime?      @db.Date
+  tauxHoraire     Decimal        @db.Decimal(8, 2)
+  logementId      String?
+  logement        Logement?      @relation(fields: [logementId], references: [id])
+
+  // Lien d'onboarding distant (sans compte, expirable)
+  tokenOnboarding String?   @unique
+  tokenExpireAt   DateTime?
+
+  // DPAE niveau 1 : dépôt manuel tracé
+  dpaeNumero   String?
+  dpaeDeposeAt DateTime?
+
+  // Forçage ADMIN (verrou de complétude contourné, motif obligatoire)
+  forceMotif String?
+  forceParId String?
+  forceAt    DateTime?
+
+  annuleMotif String?
+  creeParId   String
+  creeAt      DateTime  @default(now())
+  completAt   DateTime?
+
+  checklist ChecklistItem[]
+  documents DocumentOuvrier[]
+
+  @@index([organisationId, statut])
+  @@index([userId])
+}
+
+model ChecklistItem {
+  id        String          @id @default(cuid())
+  dossierId String
+  dossier   DossierEmbauche @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  type      TypeChecklist
+  statut    StatutChecklist @default(A_FAIRE)
+  detail    String?
+  faitAt    DateTime?
+  faitParId String?
+
+  @@unique([dossierId, type])
+}
+
+model DocumentOuvrier {
+  id             String           @id @default(cuid())
+  organisationId String
+  organisation   Organisation     @relation(fields: [organisationId], references: [id])
+  userId         String
+  user           User             @relation("DocumentsOuvrier", fields: [userId], references: [id])
+  dossierId      String?
+  dossier        DossierEmbauche? @relation(fields: [dossierId], references: [id])
+  type           TypeDocument
+  nomFichier     String
+  mimeType       String
+  taille         Int // octets (avant chiffrement)
+  contenu        Bytes // chiffré AES-256-GCM (lib/documents.ts)
+  hashSha256     String
+  ocrData        Json?
+  expireAt       DateTime?        @db.Date
+  uploadeAt      DateTime         @default(now())
+  uploadeParId   String?
+
+  signature SignatureElec?
+
+  @@index([organisationId, userId])
+  @@index([organisationId, type])
+}
+
+model ModeleContrat {
+  id             String          @id @default(cuid())
+  organisationId String
+  organisation   Organisation    @relation(fields: [organisationId], references: [id])
+  categorie      CategorieModele @default(CONTRAT)
+  nom            String
+  contenuTemplate String // texte avec variables {{prenom}}, {{dateDebut}}…
+  variables      Json            @default("[]")
+  actif          Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+
+  dossiers DossierEmbauche[]
+
+  @@index([organisationId, categorie])
+}
+
+model SignatureElec {
+  id                  String          @id @default(cuid())
+  documentId          String          @unique
+  document            DocumentOuvrier @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  signataireUserId    String
+  signataire          User            @relation("Signatures", fields: [signataireUserId], references: [id])
+  imageSignature      String // PNG dataURL du dessin au doigt
+  horodatage          DateTime        @default(now())
+  ipAdresse           String?
+  appareil            String? // user-agent
+  modeKiosque         Boolean         @default(false)
+  adminAccompagnantId String?
 }

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import ErreurBanniere from '@/components/admin/ErreurBanniere';
 import { notFound } from 'next/navigation';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
@@ -9,6 +10,7 @@ import {
   majTagsProfil,
   majNotesInternes,
   reactiverProfil,
+  remettreAuVivier,
   mettreListeNoire,
   sortirListeNoire
 } from '../actions';
@@ -16,9 +18,11 @@ import {
 export const dynamic = 'force-dynamic';
 
 export default async function ProfilVivierPage({
-  params
+  params,
+  searchParams
 }: {
   params: { id: string };
+  searchParams: { erreur?: string };
 }) {
   const user = await requireAdmin();
   const [profil, tags] = await Promise.all([
@@ -65,6 +69,8 @@ export default async function ProfilVivierPage({
         </div>
       )}
 
+      <ErreurBanniere erreur={searchParams.erreur} />
+
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-[21px] font-bold">
           {profil.prenom} {profil.nom}
@@ -75,18 +81,42 @@ export default async function ProfilVivierPage({
         </h1>
         <div className="flex gap-2">
           {(profil.statutProfil === 'VIVIER' || profil.statutProfil === 'INACTIF') && (
+            <Link
+              href={`/admin/embauches/nouveau?user=${profil.id}`}
+              className="btn-sm btn-green"
+              title="Embauche digitale : documents, contrat signé, DPAE — puis activation"
+            >
+              🚀 Embaucher
+            </Link>
+          )}
+          {(profil.statutProfil === 'VIVIER' || profil.statutProfil === 'INACTIF') && (
             <form action={reactiverProfil} className="flex items-center gap-1.5">
               <input type="hidden" name="id" value={profil.id} />
               {!profil.pinHash && (
                 <input
                   name="pin"
                   placeholder="PIN 4 chiffres"
+                  required
+                  pattern="\d{4}"
+                  inputMode="numeric"
                   maxLength={4}
+                  title="4 chiffres — obligatoire pour ouvrir l’accès portail"
                   className="input w-[110px] px-2 py-1.5 font-mono text-[13px]"
                 />
               )}
               <button className="btn-sm btn-green" title="L'historique complet est conservé">
                 ⚡ Réactiver → ACTIF
+              </button>
+            </form>
+          )}
+          {profil.statutProfil === 'ACTIF' && (
+            <form action={remettreAuVivier}>
+              <input type="hidden" name="id" value={profil.id} />
+              <button
+                className="btn-sm btn-outline"
+                title="Fin de mission : retour au vivier (historique et PIN conservés, accès portail coupé)"
+              >
+                ↩ Remettre au vivier
               </button>
             </form>
           )}

@@ -1,17 +1,20 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin, requireAdminStrict } from '@/lib/session';
 import { audit } from '@/lib/audit';
+import { todayParis, dateFromYMD } from '@/lib/dates';
 import {
   TelegramChannel,
   WhatsAppLinkChannel,
   envoyerEtJournaliser,
   telegramToken
 } from '@/lib/messaging/channel';
+import { dossierBloquant, manquants, LIBELLES_CHECKLIST } from '@/lib/embauche';
 
 /** Note 5★ unique — modifiable UNIQUEMENT par ADMIN, jamais visible par l'ouvrier (règle 13). */
 export async function noterProfil(formData: FormData) {
@@ -85,7 +88,7 @@ export async function majNotesInternes(formData: FormData) {
  * Réactivation en un clic : VIVIER/INACTIF → ACTIF, historique conservé (règle 14).
  * PIN : conservé s'il existe ; sinon un PIN à définir sur la fiche ouvrier.
  */
-export async function reactiverProfil(formData: FormData) {
+async function reactiverCoeur(formData: FormData) {
   const user = await requireAdmin();
   const id = formData.get('id') as string;
   const pin = ((formData.get('pin') as string) || '').trim();
@@ -98,6 +101,18 @@ export async function reactiverProfil(formData: FormData) {
     }
   });
   if (!profil) throw new Error('Profil introuvable ou non réactivable');
+
+  // Verrou de complétude (phase 18, règle 5) : un dossier d'embauche en cours
+  // et incomplet bloque le passage en ACTIF — activation depuis le dossier.
+  const bloquant = await dossierBloquant(user.organisationId, id);
+  if (bloquant) {
+    throw new Error(
+      `Dossier d'embauche incomplet (${manquants(bloquant.checklist)
+        .map((m) => LIBELLES_CHECKLIST[m])
+        .join(', ')}) — activez depuis le dossier ou forcez (ADMIN)`
+    );
+  }
+
   if (pin && !/^\d{4}$/.test(pin)) throw new Error('PIN : 4 chiffres');
   if (!profil.pinHash && !pin) {
     throw new Error('Ce profil n’a pas de PIN — saisissez-en un pour activer l’accès');
@@ -124,6 +139,105 @@ export async function reactiverProfil(formData: FormData) {
   });
   revalidatePath('/admin/vivier');
   revalidatePath(`/admin/vivier/${id}`);
+}
+
+/**
+ * Fin de mission : ACTIF → retour au VIVIER (historique conservé, PIN gardé
+ * pour une future réactivation, accès portail coupé). Bloqué si l'ouvrier a
+ * encore des affectations aujourd'hui ou à venir.
+ */
+async function remettreAuVivierCoeur(formData: FormData) {
+  const user = await requireAdmin();
+  const id = formData.get('id') as string;
+
+  const profil = await prisma.user.findFirst({
+    where: { id, organisationId: user.organisationId, statutProfil: 'ACTIF' }
+  });
+  if (!profil) throw new Error('Profil introuvable ou déjà hors des actifs');
+
+  const affectationsAVenir = await prisma.affectationOuvrier.count({
+    where: {
+      userId: id,
+      affectation: { organisationId: user.organisationId, date: { gte: dateFromYMD(todayParis()) } }
+    }
+  });
+  if (affectationsAVenir > 0) {
+    throw new Error(
+      `Impossible : ${profil.prenom} ${profil.nom} a encore ${affectationsAVenir} affectation(s) aujourd’hui ou à venir — retirez-le d’abord du planning.`
+    );
+  }
+
+  await prisma.user.update({
+    where: { id },
+    data: { statutProfil: 'VIVIER', actif: false }
+  });
+  await audit({
+    organisationId: user.organisationId,
+    userId: user.userId,
+    action: 'vivier.remettre',
+    entite: 'User',
+    entiteId: id,
+    avant: { statutProfil: 'ACTIF' },
+    apres: { statutProfil: 'VIVIER' }
+  });
+  revalidatePath('/admin/vivier');
+  revalidatePath(`/admin/vivier/${id}`);
+  revalidatePath('/admin/ouvriers');
+}
+
+
+/** Message d'erreur lisible : catch → redirect ?erreur= (les throw sont masqués en prod). */
+function messageErreur(e: unknown): string {
+  return e instanceof Error ? e.message : 'Erreur inattendue';
+}
+
+/** Form action fiche/listes : VIVIER/INACTIF → ACTIF, erreurs en bannière. */
+export async function reactiverProfil(formData: FormData) {
+  const id = formData.get('id') as string;
+  let erreur: string | null = null;
+  try {
+    await reactiverCoeur(formData);
+  } catch (e) {
+    erreur = messageErreur(e);
+  }
+  if (erreur) redirect(`/admin/vivier/${id}?erreur=${encodeURIComponent(erreur)}`);
+}
+
+/** Form action fiche/liste ouvriers : ACTIF → VIVIER, erreurs en bannière. */
+export async function remettreAuVivier(formData: FormData) {
+  const id = formData.get('id') as string;
+  const retour = (formData.get('retour') as string) || `/admin/vivier/${id}`;
+  let erreur: string | null = null;
+  try {
+    await remettreAuVivierCoeur(formData);
+  } catch (e) {
+    erreur = messageErreur(e);
+  }
+  if (erreur) redirect(`${retour}?erreur=${encodeURIComponent(erreur)}`);
+}
+
+// Variantes pour appel depuis les listes (client components) : en production,
+// Next masque les messages des actions qui « throw » — ici on RETOURNE l'erreur.
+export async function reactiverProfilDepuisListe(
+  formData: FormData
+): Promise<{ ok: boolean; erreur?: string }> {
+  try {
+    await reactiverCoeur(formData);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, erreur: e instanceof Error ? e.message : 'Erreur' };
+  }
+}
+
+export async function remettreAuVivierDepuisListe(
+  formData: FormData
+): Promise<{ ok: boolean; erreur?: string }> {
+  try {
+    await remettreAuVivierCoeur(formData);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, erreur: e instanceof Error ? e.message : 'Erreur' };
+  }
 }
 
 /** Mise en liste noire — motif OBLIGATOIRE, date et auteur tracés (règle 12). */

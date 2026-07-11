@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 // Export CSV global du mois pour la compta (séparateur ; + BOM pour Excel FR).
 export async function GET(req: Request) {
   const user = await getSessionUser();
-  if (!user || (user.role !== 'ADMIN' && user.role !== 'RH')) {
+  if (!user || (user.role !== 'ADMIN' && user.role !== 'MANAGER')) {
     return new NextResponse('Non autorisé', { status: 401 });
   }
 

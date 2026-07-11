@@ -29,7 +29,6 @@ const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const affectationSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   missionId: z.string().min(1),
-  parcelleId: z.string().optional(),
   heureDebut: z.string().regex(HHMM, 'Heure début invalide (HH:MM)'),
   heureFinPrevue: z
     .string()
@@ -43,8 +42,23 @@ const affectationSchema = z.object({
 });
 
 export async function createAffectation(formData: FormData) {
+  const date = (formData.get('date') as string) || '';
+  let erreur: string | null = null;
+  try {
+    await createAffectationCoeur(formData);
+  } catch (e) {
+    // NEXT_REDIRECT = succès (redirect final du coeur) — le laisser passer
+    if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e;
+    if ((e as { digest?: string })?.digest?.toString().startsWith('NEXT_REDIRECT')) throw e;
+    erreur = e instanceof Error ? e.message : 'Erreur inattendue';
+  }
+  if (erreur) redirect(`/admin/affectations?date=${date}&erreur=${encodeURIComponent(erreur)}`);
+}
+
+async function createAffectationCoeur(formData: FormData) {
   const user = await requireAdmin();
   const ouvrierIds = formData.getAll('ouvrierIds').map(String).filter(Boolean);
+  const parcelleIds = formData.getAll('parcelleIds').map(String).filter(Boolean);
   const parsed = affectationSchema.parse(Object.fromEntries(formData.entries()));
 
   if (ouvrierIds.length === 0) throw new Error('Sélectionnez au moins un ouvrier');
@@ -54,11 +68,18 @@ export async function createAffectation(formData: FormData) {
   });
   if (!mission) throw new Error('Mission introuvable');
 
-  if (parsed.parcelleId) {
-    const parcelle = await prisma.parcelle.findFirst({
-      where: { id: parsed.parcelleId, missionId: mission.id }
+  // Multi-parcelles : elles doivent appartenir au client de la mission (règle 15)
+  if (parcelleIds.length > 0) {
+    const valides = await prisma.parcelle.count({
+      where: {
+        id: { in: parcelleIds },
+        clientId: mission.clientId,
+        organisationId: user.organisationId
+      }
     });
-    if (!parcelle) throw new Error('Parcelle hors mission');
+    if (valides !== parcelleIds.length) {
+      throw new Error('Une parcelle sélectionnée n’appartient pas au client de la mission');
+    }
   }
 
   const ouvriers = await prisma.user.findMany({
@@ -84,14 +105,14 @@ export async function createAffectation(formData: FormData) {
       organisationId: user.organisationId,
       date: dateFromYMD(parsed.date),
       missionId: mission.id,
-      parcelleId: parsed.parcelleId || null,
       heureDebut: parsed.heureDebut,
       heureFinPrevue: parsed.heureFinPrevue || null,
       pauseMinutesPrevue: parsed.pauseMinutesPrevue ?? null,
       chefEquipeId,
       instructions: parsed.instructions || null,
       publieAt: parsed.publier === 'on' ? new Date() : null,
-      ouvriers: { create: ouvrierIds.map((userId) => ({ userId })) }
+      ouvriers: { create: ouvrierIds.map((userId) => ({ userId })) },
+      parcelles: { create: parcelleIds.map((parcelleId) => ({ parcelleId })) }
     }
   });
 
@@ -101,7 +122,7 @@ export async function createAffectation(formData: FormData) {
     action: 'affectation.create',
     entite: 'Affectation',
     entiteId: affectation.id,
-    apres: { ...parsed, ouvrierIds }
+    apres: { ...parsed, ouvrierIds, parcelleIds }
   });
 
   if (affectation.publieAt) await pushAffectationPubliee([affectation.id]);
@@ -111,6 +132,18 @@ export async function createAffectation(formData: FormData) {
 }
 
 export async function deleteAffectation(formData: FormData) {
+  const date = (formData.get('date') as string) || '';
+  let erreur: string | null = null;
+  try {
+    await deleteAffectationCoeur(formData);
+  } catch (e) {
+    if ((e as { digest?: string })?.digest?.toString().startsWith('NEXT_REDIRECT')) throw e;
+    erreur = e instanceof Error ? e.message : 'Erreur inattendue';
+  }
+  if (erreur) redirect(`/admin/affectations?date=${date}&erreur=${encodeURIComponent(erreur)}`);
+}
+
+async function deleteAffectationCoeur(formData: FormData) {
   const user = await requireAdmin();
   const id = formData.get('id') as string;
   const date = formData.get('date') as string;
@@ -171,7 +204,7 @@ export async function dupliquerHier(formData: FormData) {
 
   const sources = await prisma.affectation.findMany({
     where: { organisationId: user.organisationId, date: dateFromYMD(veille) },
-    include: { ouvriers: true }
+    include: { ouvriers: true, parcelles: true }
   });
   if (sources.length === 0) {
     redirect(`/admin/affectations?date=${date}&info=rien-a-dupliquer`);
@@ -183,7 +216,6 @@ export async function dupliquerHier(formData: FormData) {
         organisationId: user.organisationId,
         date: dateFromYMD(date),
         missionId: src.missionId,
-        parcelleId: src.parcelleId,
         heureDebut: src.heureDebut,
         heureFinPrevue: src.heureFinPrevue,
         pauseMinutesPrevue: src.pauseMinutesPrevue,
@@ -192,6 +224,9 @@ export async function dupliquerHier(formData: FormData) {
         publieAt: null, // à re-publier après contrôle
         ouvriers: {
           create: src.ouvriers.map((o) => ({ userId: o.userId }))
+        },
+        parcelles: {
+          create: src.parcelles.map((p) => ({ parcelleId: p.parcelleId }))
         }
       }
     });

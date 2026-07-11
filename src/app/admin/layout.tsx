@@ -1,16 +1,22 @@
 import Link from 'next/link';
 import { getSessionUser } from '@/lib/session';
 import LogoutButton from '@/components/LogoutButton';
+import ToastActions from '@/components/admin/ToastActions';
 
 const NAV: Array<{ href: string; label: string; adminOnly?: boolean }> = [
   { href: '/admin', label: 'Tableau de bord' },
   { href: '/admin/affectations', label: 'Affectations' },
+  { href: '/admin/carte', label: 'Carte' },
   { href: '/admin/heures', label: 'Heures' },
   { href: '/admin/ouvriers', label: 'Ouvriers' },
   { href: '/admin/vivier', label: 'Vivier' },
   { href: '/admin/candidatures', label: 'Candidatures' },
+  { href: '/admin/embauches', label: 'Embauches' },
+  { href: '/admin/demandes', label: 'Demandes MO' },
+  { href: '/admin/recruteurs', label: 'Recruteurs' },
   { href: '/admin/clients', label: 'Clients' },
   { href: '/admin/missions', label: 'Missions' },
+  { href: '/admin/import-parcelles', label: 'Import' },
   { href: '/admin/logements', label: 'Logements' },
   { href: '/admin/acomptes', label: 'Acomptes' },
   { href: '/admin/retenues', label: 'Retenues' },
@@ -26,7 +32,7 @@ export default async function AdminLayout({
 }) {
   const user = await getSessionUser();
   // /admin/login est rendu sans chrome
-  if (!user || (user.role !== 'ADMIN' && user.role !== 'RH')) {
+  if (!user || (user.role !== 'ADMIN' && user.role !== 'MANAGER')) {
     return <>{children}</>;
   }
 
@@ -34,7 +40,7 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-50 bg-ink text-paper">
+      <header className="sticky top-0 z-[1200] bg-ink text-paper">
         <div className="mx-auto flex max-w-[1200px] items-center justify-between px-4 py-2.5">
           <Link href="/admin" className="text-[17px] font-bold tracking-wider">
             KRON<b className="text-amber">TROL</b>
@@ -62,6 +68,7 @@ export default async function AdminLayout({
         </nav>
       </header>
       <main className="mx-auto max-w-[1200px] px-4 py-6">{children}</main>
+      <ToastActions />
     </div>
   );
 }

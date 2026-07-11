@@ -23,7 +23,7 @@ export const authOptions: NextAuthOptions = {
     signIn: '/'
   },
   providers: [
-    // ADMIN / RH : email + mot de passe
+    // ADMIN / MANAGER / CLIENT : email + mot de passe
     CredentialsProvider({
       id: 'admin-credentials',
       name: 'Admin',
@@ -37,7 +37,7 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email.toLowerCase().trim() }
         });
         if (!user || !user.motDePasseHash || !user.actif) return null;
-        if (user.role !== 'ADMIN' && user.role !== 'RH') return null;
+        if (!['ADMIN', 'MANAGER', 'CLIENT', 'RECRUTEUR'].includes(user.role)) return null;
 
         // Même rate-limiting que le PIN : 5 échecs → blocage 15 min
         if (user.pinBloqueJusqua && user.pinBloqueJusqua > new Date()) {
@@ -71,7 +71,8 @@ export const authOptions: NextAuthOptions = {
           role: user.role,
           organisationId: user.organisationId,
           langue: user.langue,
-          estChefEquipe: user.estChefEquipe
+          estChefEquipe: user.estChefEquipe,
+          clientId: user.clientId
         } as any;
       }
     }),
@@ -139,6 +140,7 @@ export const authOptions: NextAuthOptions = {
         token.organisationId = u.organisationId;
         token.langue = u.langue;
         token.estChefEquipe = u.estChefEquipe;
+        token.clientId = u.clientId ?? null;
       }
       return token;
     },
@@ -148,6 +150,7 @@ export const authOptions: NextAuthOptions = {
       (session as any).organisationId = token.organisationId;
       (session as any).langue = token.langue;
       (session as any).estChefEquipe = token.estChefEquipe;
+      (session as any).clientId = token.clientId ?? null;
       return session;
     }
   }

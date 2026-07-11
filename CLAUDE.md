@@ -1,6 +1,8 @@
 # CLAUDE.md — État du projet Krontrol
 
-SaaS de gestion de main-d'œuvre agricole saisonnière (spec : KRONTROL-PROMPT-V2, 13 phases).
+SaaS de gestion de main-d'œuvre agricole saisonnière (spec : **KRONTROL-PROMPT-V3** —
+V2 + rôle MANAGER + parcelles cadastrales du client + carte IGN + import de masse +
+portail client lecture seule).
 Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée par
 `organisationId` issu de la session.
 
@@ -92,6 +94,74 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       langue, statut) + tri note/nom/dernière saison. Contact wa.me/Telegram individuel et
       groupé (template VIVIER langue du profil, éditable, journalisé), réactivation 1 clic
       (historique conservé, PIN gardé ou re-saisi).
+- [x] **Phase 14 (V3) — Rôles & parcelles client** : RH → MANAGER (mêmes droits back-office,
+      jamais Pennylane/paramètres/comptes/notes 5★ — gardes `requireAdminStrict`), nouveau
+      rôle CLIENT (email/mdp, `User.clientId`). **Parcelle rattachée au CLIENT** (règle 15) :
+      champs cadastraux (INSEE/section/numéro), géométrie GeoJSON, centroïde indexé, surface,
+      cépage/millésime, source, anti-doublon `(codeInsee, section, numero, clientId)`.
+      Affectations **multi-parcelles** (`AffectationParcelle`), messages avec bloc parcelles
+      numéroté (réf + surface + lien Maps) + Telegram `sendLocation` par parcelle, écran
+      ouvrier avec itinéraire par centroïde + mini-aperçu statique IGN (WMS + SVG).
+      Bases existantes : exécuter `prisma/migration-v3.sql` AVANT `prisma db push`.
+- [x] **Phase 15 (V3) — Carte & import** : `/admin/carte` Leaflet plein écran, 3 fonds IGN
+      Géoplateforme (ortho/Plan IGN/overlay cadastre, gratuits sans clé), polygones colorés
+      par client + bordure statut (gris/orange/vert), chargement par viewport, panneau
+      filtrable, saisie Mode A (autocomplétion commune API Géo → API Carto par référence)
+      et Mode B (« Pointer une parcelle » → API Carto par point), multi-candidates,
+      sélection multiple → affectation pré-remplie. `/admin/import-parcelles` : xlsx/xls/
+      csv/geojson/kml parsés navigateur, modèle Excel, mapping interactif, aperçu +
+      validation à blanc, lots résumables (`/api/import/[id]/process`, 15 lignes/appel,
+      5 appels IGN max — contrainte Vercel), dédoublonnage, rapport d'erreurs .xlsx,
+      reprise après rechargement. Tous les appels IGN passent par le serveur.
+- [x] **Phase 16 (V3) — Portail client** : `/client` lecture seule FR (rôle CLIENT) —
+      Mes missions (heures validées temps réel, tarif seulement si
+      `Client.afficherTarifAuClient`), Ma carte (parcelles du client + statut dernière
+      intervention), Planning (affectations publiées à venir, « N ouvriers », noms visibles
+      seulement si paramètre org `afficherNomsOuvriersAuClient`, chef montré), Historique
+      par parcelle (carnet de travaux : date, travaux, heures validées). Jamais de taux
+      ouvriers/acomptes/logements/vivier. Mini-carte « parcelles du jour » sur le dashboard
+      admin (bordure = confirmations équipe). Comptes CLIENT gérés dans Paramètres.
+- [x] **Phase 17 — Module Recruteurs** : rôle RECRUTEUR (inscription publique ouverte
+      `/recruteur/inscription`, suspension = `actif:false` bloque le login). Portail
+      `/recruteur` **trilingue FR/RO/ES** (namespace `recruiter`, drapeaux, lien
+      pré-langué `?lang=ro|es`, erreurs serveur traduites via champ caché `langueUi`,
+      langue d'inscription → `User.langue` pour les notifications) : demandes ouvertes
+      (commission, pourvus X/N), proposer un candidat
+      (sur demande ou spontané, téléphone = clé de dédoublonnage, doublon signalé),
+      « Mes candidats » (statuts), « Mes gains » (ticket généré/payé/reste dû). Admin :
+      `/admin/demandes` (CRUD + notification Telegram auto + wa.me, template DEMANDE
+      FR/RO/ES), propositions dans `/admin/candidatures` (badge « via [Recruteur] »,
+      accepter → VIVIER + Placement si éligible), `/admin/recruteurs` (stats, fiche gains,
+      paiement FIFO, annulation sous délai motivée, suspension), export CSV
+      `/api/commissions/export`, 2 cartes dashboard, 3 réglages dans Paramètres. Règles
+      anti-abus (spec §E) dans `lib/recruteurs.ts` : commission fixe (défaut 100 €),
+      profil déjà connu jamais commissionné SAUF INACTIF > delaiRepropositionMois (12),
+      premier recruteur crédité en cas de double proposition, annulation ≤
+      delaiAnnulationPlacementJours (7), liste noire bloquée, tout audité. Migration base
+      existante : `prisma/migration-recruteurs.sql` (déjà appliquée en prod).
+
+- [x] **Phase 18 — Embauche digitale (onboarding)** : bouton « 🚀 Embaucher » (fiche vivier)
+      → mini-formulaire (modèle de contrat, dates, taux, logement → séjour créé) → dossier
+      EN_COURS + checklist 6 items. **Deux modes** : lien sécurisé `/embauche/[token]`
+      (7 jours paramétrables, sans compte, trilingue FR/RO/ES) ET mode kiosque
+      (`/admin/embauches/[id]/kiosque` — même parcours, l'ouvrier signe lui-même, admin
+      accompagnant tracé). Étapes : pièce d'identité (photo compressée client + **OCR
+      vision Claude** si clé `anthropicApiKey`/env, sinon saisie — écran de confirmation
+      obligatoire règle 1, alerte expiration), n° sécu (photo carte vitale/saisie/« pas
+      encore immatriculé » → FLAG MSA), IBAN facultatif (badge « espèces uniquement »),
+      mutuelle adhésion/dispense + motif, contrat (moteur de templates `{{variables}}`,
+      Paramètres → Modèles de documents, placeholders substituables) — **signature au
+      doigt** (canvas) → PDF DejaVu + page de traçabilité (horodatage/appareil/IP/mode/
+      admin) + SHA-256. **DPAE niveau 1** : écran champs TESA/MSA copiables (n° employeur
+      MSA/SIRET/adresse dans Paramètres) + récépissé, alerte si début ≤ demain
+      (`DpaeProvider` isolé pour l'EDI futur). **Verrou règle 5** : ACTIF impossible si
+      checklist incomplète (aussi dans vivier/fiche ouvrier), forçage ADMIN motivé →
+      statut FORCE + bannière rouge. **Coffre-fort** : `DocumentOuvrier` chiffré
+      **AES-256-GCM** (`DOCUMENTS_ENCRYPTION_KEY`, numéro de sécu aussi chiffré),
+      consultations auditées, `/api/documents/[id]`, ZIP par ouvrier + ZIP « contrôle
+      MSA » par période (`/api/documents/zip`, lib/zip.ts pur TS), purge > rétention
+      (Paramètres). 2 cartes dashboard (embauches en cours/DPAE urgente, pièces expirant
+      < 30 j). Migration : `prisma/migration-embauche.sql` (appliquée en prod).
 
 ## Lancer le projet en local
 
@@ -112,11 +182,13 @@ npm run dev               # http://localhost:3000
 | Rôle | Identifiant | Secret |
 |---|---|---|
 | ADMIN | admin@pickajob.fr (sur /admin/login) | admin123 |
-| RH | rh@pickajob.fr | admin123 |
+| MANAGER | manager@pickajob.fr | admin123 |
+| CLIENT (portail /client) | client@domaine-schmitt.fr (sur /client/login) | admin123 |
 | Chef d'équipe | +40711111111 (sur /) | PIN 1234 |
 | Ouvrier (RO) | +40722222222 | PIN 1234 |
 | Ouvrier (RO) | +40733333333 | PIN 1234 |
 | Ouvrier (ES) | +34644444444 | PIN 1234 |
+| RECRUTEUR (portail /recruteur) | inscription libre sur /recruteur/inscription | — |
 
 **Tester la connexion PIN** : ouvrir `http://localhost:3000`, saisir `+40722222222`
 (ou `0722…` sera normalisé), taper `1234` sur le pavé — la connexion part au 4ᵉ chiffre.
@@ -128,7 +200,7 @@ npm run dev               # http://localhost:3000
 prisma/schema.prisma      # modèle complet (section 5) + rate-limit PIN + push
 prisma/seed.ts
 src/
-  middleware.ts           # garde /admin (ADMIN|RH) et /app (OUVRIER|CHEF_EQUIPE)
+  middleware.ts           # garde /admin (ADMIN|MANAGER), /app (ouvriers), /client (CLIENT), /recruteur (RECRUTEUR)
   i18n/request.ts         # locale par cookie NEXT_LOCale, tz Europe/Paris
   messages/{fr,ro,es}.json
   lib/

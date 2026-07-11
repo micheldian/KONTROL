@@ -19,7 +19,7 @@ export async function envoyerTelegram(formData: FormData) {
 
   const data = await messagesAffectation(affectationId, user.organisationId);
   if (!data) throw new Error('Affectation introuvable');
-  const { affectation, destinataires } = data;
+  const { affectation, destinataires, parcelles } = data;
 
   const channel = new TelegramChannel(telegramToken(affectation.organisation.parametres));
   const cibles =
@@ -28,8 +28,12 @@ export async function envoyerTelegram(formData: FormData) {
       : destinataires;
   if (cibles.length === 0) throw new Error('Aucun destinataire (chef non défini ?)');
 
+  const localisations = parcelles.filter(
+    (p) => p.centroidLat != null && p.centroidLng != null
+  );
+
   for (const d of cibles) {
-    await envoyerEtJournaliser({
+    const resultat = await envoyerEtJournaliser({
       organisationId: user.organisationId,
       canal: 'TELEGRAM',
       contexte: 'AFFECTATION',
@@ -42,6 +46,12 @@ export async function envoyerTelegram(formData: FormData) {
       affectationId,
       channel
     });
+    // sendLocation par parcelle (centroïde) — itinéraire en un tap
+    if (resultat.statut === 'ENVOYE') {
+      for (const p of localisations) {
+        await channel.envoyerLocalisation(d.ao.user.telegramChatId, p.centroidLat!, p.centroidLng!);
+      }
+    }
   }
 
   await audit({

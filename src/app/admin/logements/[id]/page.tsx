@@ -3,14 +3,17 @@ import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { todayParis, dateFromYMD, ymd } from '@/lib/dates';
 import LogementForm from '../logement-form';
+import ErreurBanniere from '@/components/admin/ErreurBanniere';
 import { creerSejour, cloreSejour, supprimerSejour } from '../actions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function EditLogementPage({
-  params
+  params,
+  searchParams
 }: {
   params: { id: string };
+  searchParams: { erreur?: string };
 }) {
   const user = await requireAdmin();
   const today = dateFromYMD(todayParis());
@@ -42,6 +45,7 @@ export default async function EditLogementPage({
 
   return (
     <div className="max-w-[760px]">
+      <ErreurBanniere erreur={searchParams.erreur} />
       <LogementForm logement={logement} />
 
       <h2 className="mb-1 mt-8 text-[16px] font-bold">Séjours</h2>
