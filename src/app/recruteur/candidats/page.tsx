@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { requireRecruteur } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
@@ -27,6 +28,7 @@ export default async function MesCandidatsPage({
       demande: { select: { titre: true } },
       placement: { select: { commissionStatut: true } }
     },
+    // noteRecruteur inclus par défaut (champ scalaire)
     orderBy: { creeAt: 'desc' }
   });
 
@@ -55,6 +57,7 @@ export default async function MesCandidatsPage({
               <th>{t('thProposedOn')}</th>
               <th>{t('thStatus')}</th>
               <th>{t('thDetail')}</th>
+              <th>{t('thFiche')}</th>
             </tr>
           </thead>
           <tbody>
@@ -77,13 +80,19 @@ export default async function MesCandidatsPage({
                   <td className="text-[12.5px] text-muted">
                     {p.doublonDetecte && t('knownProfile')}
                     {p.motifRefus ? ` ${p.motifRefus}` : ''}
+                    {p.noteRecruteur ? ' 📝' : ''}
+                  </td>
+                  <td>
+                    <Link href={`/recruteur/candidats/${p.id}`} className="btn-sm btn-outline">
+                      {t('voirFiche')}
+                    </Link>
                   </td>
                 </tr>
               );
             })}
             {propositions.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-muted">
+                <td colSpan={7} className="py-8 text-center text-muted">
                   {t('noPropositions')}
                 </td>
               </tr>

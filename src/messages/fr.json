@@ -186,6 +186,26 @@
     "errInternal": "Ce numéro appartient à un compte interne — proposition impossible",
     "errAlreadyProposed": "Vous avez déjà proposé ce candidat (en attente de traitement)",
     "errFormIncomplete": "Formulaire incomplet",
-    "errUnexpected": "Erreur inattendue"
+    "errUnexpected": "Erreur inattendue",
+    "ficheTitle": "Fiche candidat",
+    "ficheInfos": "Informations (fournies par vous)",
+    "fichePhone": "Téléphone",
+    "ficheLang": "Langue",
+    "ficheExp": "Expérience déclarée",
+    "ficheSkills": "Compétences",
+    "ficheSituation": "Situation actuelle",
+    "sitMission": "En mission actuellement",
+    "sitDispo": "Disponible (vivier / mission terminée)",
+    "sitValidation": "En cours de validation",
+    "sitIndispo": "Indisponible",
+    "fichePlacedOn": "Placé le",
+    "ficheProposedOn": "Proposé le",
+    "ficheNotes": "Mes notes personnelles",
+    "ficheNotesAide": "Visibles par vous uniquement — jamais par l'organisation ni le candidat. Disponibilités, préférences, suivi…",
+    "ficheNotesPlaceholder": "Ex. Disponible à partir de mars, préfère la taille, a un permis B…",
+    "save": "Enregistrer",
+    "back": "Retour",
+    "thFiche": "Fiche",
+    "voirFiche": "Ouvrir"
   }
 }

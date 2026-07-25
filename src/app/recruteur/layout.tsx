@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { getSessionUser } from '@/lib/session';
 import LogoutButton from '@/components/LogoutButton';
 import LangSwitcher from '@/components/LangSwitcher';
+import ToastActions from '@/components/admin/ToastActions';
 
 // Portail recruteur (spec §C) — ne voit jamais : autres recruteurs, vivier, paie.
 // Trilingue FR/RO/ES (cookie NEXT_LOCALE, drapeaux dans l'en-tête).
@@ -51,6 +52,7 @@ export default async function RecruteurLayout({ children }: { children: React.Re
         </nav>
       </header>
       <main className="mx-auto max-w-[1000px] px-4 py-6">{children}</main>
+      <ToastActions />
     </div>
   );
 }

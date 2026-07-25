@@ -609,6 +609,7 @@ model PropositionCandidat {
   statut         StatutProposition  @default(PROPOSEE)
   motifRefus     String?
   doublonDetecte Boolean            @default(false) // téléphone déjà connu à la proposition
+  noteRecruteur  String? // notes privées du recruteur sur SON candidat (jamais visibles admin/ouvrier)
   creeAt         DateTime           @default(now())
   traiteParId    String?
   traiteAt       DateTime?

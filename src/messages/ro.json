@@ -186,6 +186,26 @@
     "errInternal": "Acest număr aparține unui cont intern — propunere imposibilă",
     "errAlreadyProposed": "Ați propus deja acest candidat (în așteptarea procesării)",
     "errFormIncomplete": "Formular incomplet",
-    "errUnexpected": "Eroare neașteptată"
+    "errUnexpected": "Eroare neașteptată",
+    "ficheTitle": "Fișa candidatului",
+    "ficheInfos": "Informații (furnizate de dvs.)",
+    "fichePhone": "Telefon",
+    "ficheLang": "Limbă",
+    "ficheExp": "Experiență declarată",
+    "ficheSkills": "Competențe",
+    "ficheSituation": "Situația actuală",
+    "sitMission": "În misiune în prezent",
+    "sitDispo": "Disponibil (rezervă / misiune încheiată)",
+    "sitValidation": "În curs de validare",
+    "sitIndispo": "Indisponibil",
+    "fichePlacedOn": "Plasat la",
+    "ficheProposedOn": "Propus la",
+    "ficheNotes": "Notele mele personale",
+    "ficheNotesAide": "Vizibile doar pentru dvs. — niciodată pentru organizație sau candidat. Disponibilitate, preferințe, urmărire…",
+    "ficheNotesPlaceholder": "Ex. Disponibil din martie, preferă tăiatul viței, are permis B…",
+    "save": "Salvează",
+    "back": "Înapoi",
+    "thFiche": "Fișă",
+    "voirFiche": "Deschide"
   }
 }

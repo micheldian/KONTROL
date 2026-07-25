@@ -186,6 +186,26 @@
     "errInternal": "Este número pertenece a una cuenta interna — propuesta imposible",
     "errAlreadyProposed": "Ya propuso a este candidato (pendiente de tratamiento)",
     "errFormIncomplete": "Formulario incompleto",
-    "errUnexpected": "Error inesperado"
+    "errUnexpected": "Error inesperado",
+    "ficheTitle": "Ficha del candidato",
+    "ficheInfos": "Información (proporcionada por usted)",
+    "fichePhone": "Teléfono",
+    "ficheLang": "Idioma",
+    "ficheExp": "Experiencia declarada",
+    "ficheSkills": "Competencias",
+    "ficheSituation": "Situación actual",
+    "sitMission": "Actualmente en misión",
+    "sitDispo": "Disponible (reserva / misión terminada)",
+    "sitValidation": "En proceso de validación",
+    "sitIndispo": "No disponible",
+    "fichePlacedOn": "Colocado el",
+    "ficheProposedOn": "Propuesto el",
+    "ficheNotes": "Mis notas personales",
+    "ficheNotesAide": "Visibles solo para usted — nunca para la organización ni el candidato. Disponibilidad, preferencias, seguimiento…",
+    "ficheNotesPlaceholder": "Ej. Disponible desde marzo, prefiere la poda, tiene carné B…",
+    "save": "Guardar",
+    "back": "Volver",
+    "thFiche": "Ficha",
+    "voirFiche": "Abrir"
   }
 }

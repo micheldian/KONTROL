@@ -205,3 +205,21 @@ export async function proposerCandidat(formData: FormData) {
       : '/recruteur/candidats?ok=1'
   );
 }
+
+/** Notes privées du recruteur sur SON candidat (mini-CRM, jamais visibles ailleurs). */
+export async function majNoteRecruteur(formData: FormData) {
+  const user = await requireRecruteur();
+  const id = formData.get('id') as string;
+  const note = ((formData.get('note') as string) || '').trim().slice(0, 4000);
+
+  const proposition = await prisma.propositionCandidat.findFirst({
+    where: { id, organisationId: user.organisationId, recruteurId: user.userId }
+  });
+  if (!proposition) throw new Error('Candidat introuvable');
+
+  await prisma.propositionCandidat.update({
+    where: { id },
+    data: { noteRecruteur: note || null }
+  });
+  revalidatePath(`/recruteur/candidats/${id}`);
+}
