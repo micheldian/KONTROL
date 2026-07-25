@@ -56,7 +56,10 @@ export default async function VivierPage({
             OR: [
               { nom: { contains: q, mode: 'insensitive' } },
               { prenom: { contains: q, mode: 'insensitive' } },
-              { telephone: { contains: q.replace(/[^\d+]/g, '') || q } }
+              { telephone: { contains: q.replace(/[^\d+]/g, '') || q } },
+              // Mot-clé libre dans l'expérience déclarée (ex. « pomme de terre »)
+              { experienceDeclaree: { contains: q, mode: 'insensitive' } },
+              { notesInternes: { contains: q, mode: 'insensitive' } }
             ]
           }
         : {}),
@@ -118,7 +121,12 @@ export default async function VivierPage({
       <form className="card mb-4 flex flex-wrap items-end gap-3 p-4">
         <div>
           <label className="label">Nom ou téléphone</label>
-          <input name="q" defaultValue={q} className="input w-[200px] py-2" placeholder="Rechercher…" />
+          <input
+            name="q"
+            defaultValue={q}
+            className="input w-[230px] py-2"
+            placeholder="Nom, tél. ou mot-clé (ex. pomme de terre)"
+          />
         </div>
         <div>
           <label className="label">Statut</label>
