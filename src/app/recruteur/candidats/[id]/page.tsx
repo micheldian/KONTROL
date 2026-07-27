@@ -29,6 +29,8 @@ export default async function FicheCandidatRecruteurPage({
           nom: true,
           telephone: true,
           langue: true,
+          permisB: true,
+          vehicule: true,
           experienceDeclaree: true,
           statutProfil: true,
           competences: { include: { tag: true } }
@@ -89,6 +91,14 @@ export default async function FicheCandidatRecruteurPage({
           <div className="flex gap-3">
             <span className="w-[170px] text-muted">{t('ficheLang')}</span>
             <b>{c.langue}</b>
+          </div>
+          <div className="flex gap-3">
+            <span className="w-[170px] text-muted">{t('ficheMobilite')}</span>
+            <b>
+              {[c.permisB ? `🚗 ${t('permisB')}` : null, c.vehicule ? `🚙 ${t('vehicule')}` : null]
+                .filter(Boolean)
+                .join(' · ') || '—'}
+            </b>
           </div>
           <div className="flex gap-3">
             <span className="w-[170px] text-muted">{t('thRequest')}</span>

@@ -17,6 +17,8 @@ export default function JoinForm({
   const [telephone, setTelephone] = useState('');
   const [langue, setLangue] = useState(locale.toUpperCase());
   const [experience, setExperience] = useState('');
+  const [permisB, setPermisB] = useState(false);
+  const [vehicule, setVehicule] = useState(false);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [honeypot, setHoneypot] = useState('');
   const [fini, setFini] = useState<null | 'ok' | 'deja'>(null);
@@ -48,6 +50,8 @@ export default function JoinForm({
         telephone,
         langue: ['FR', 'RO', 'ES'].includes(langue) ? langue : 'FR',
         experience,
+        permisB,
+        vehicule,
         tagIds,
         siteweb: honeypot
       });
@@ -143,6 +147,27 @@ export default function JoinForm({
             );
           })}
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setPermisB((v) => !v)}
+          className={`min-h-[52px] rounded-xl border-[1.5px] px-3 py-2.5 text-left text-[14px] font-semibold ${
+            permisB ? 'border-brand bg-brand text-white' : 'border-line bg-white'
+          }`}
+        >
+          {permisB ? '✓ ' : ''}🚗 {labels.permisB}
+        </button>
+        <button
+          type="button"
+          onClick={() => setVehicule((v) => !v)}
+          className={`min-h-[52px] rounded-xl border-[1.5px] px-3 py-2.5 text-left text-[14px] font-semibold ${
+            vehicule ? 'border-brand bg-brand text-white' : 'border-line bg-white'
+          }`}
+        >
+          {vehicule ? '✓ ' : ''}🚙 {labels.vehicule}
+        </button>
       </div>
 
       <div>

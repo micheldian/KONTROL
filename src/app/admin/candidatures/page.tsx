@@ -133,6 +133,8 @@ export default async function CandidaturesPage({
                       via {p.recruteur.societe ?? `${p.recruteur.prenom} ${p.recruteur.nom}`}
                     </span>
                     <span className="ml-1 badge badge-muted">{p.candidat.langue}</span>
+                    {p.candidat.permisB && <span className="ml-1 badge badge-ok">🚗 permis</span>}
+                    {p.candidat.vehicule && <span className="ml-1 badge badge-ok">🚙 véhiculé</span>}
                     {p.doublonDetecte && !listeNoire && (
                       <span className="ml-1 badge badge-amber">
                         profil déjà connu · {p.candidat.statutProfil}
@@ -221,6 +223,8 @@ export default async function CandidaturesPage({
                     {c.user.prenom} {c.user.nom}
                   </b>
                   <span className="ml-2 badge badge-muted">{c.user.langue}</span>
+                  {c.user.permisB && <span className="ml-1 badge badge-ok">🚗 permis</span>}
+                  {c.user.vehicule && <span className="ml-1 badge badge-ok">🚙 véhiculé</span>}
                   {dejaConnu && !listeNoire && (
                     <span className="ml-1 badge badge-amber">
                       profil existant · {c.user.statutProfil}

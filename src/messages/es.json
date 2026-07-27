@@ -106,7 +106,9 @@
     "alreadySent": "Su candidatura ya está registrada. Le llamaremos.",
     "errPhone": "Número de teléfono no válido",
     "errRequired": "Campos obligatorios: apellido, nombre, teléfono",
-    "errRate": "Demasiados intentos. Inténtelo más tarde."
+    "errRate": "Demasiados intentos. Inténtelo más tarde.",
+    "permisB": "Tengo carné de conducir (B)",
+    "vehicule": "Tengo vehículo propio"
   },
   "recruiter": {
     "spaceTitle": "Espacio reclutadores",
@@ -206,6 +208,9 @@
     "save": "Guardar",
     "back": "Volver",
     "thFiche": "Ficha",
-    "voirFiche": "Abrir"
+    "voirFiche": "Abrir",
+    "permisB": "Carné de conducir (B)",
+    "vehicule": "Vehículo propio",
+    "ficheMobilite": "Movilidad"
   }
 }

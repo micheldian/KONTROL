@@ -106,7 +106,9 @@
     "alreadySent": "Candidatura dvs. este deja înregistrată. Vă vom suna.",
     "errPhone": "Număr de telefon invalid",
     "errRequired": "Câmpuri obligatorii: nume, prenume, telefon",
-    "errRate": "Prea multe încercări. Reîncercați mai târziu."
+    "errRate": "Prea multe încercări. Reîncercați mai târziu.",
+    "permisB": "Am permis de conducere (B)",
+    "vehicule": "Am mașină personală"
   },
   "recruiter": {
     "spaceTitle": "Spațiu recrutori",
@@ -206,6 +208,9 @@
     "save": "Salvează",
     "back": "Înapoi",
     "thFiche": "Fișă",
-    "voirFiche": "Deschide"
+    "voirFiche": "Deschide",
+    "permisB": "Permis de conducere (B)",
+    "vehicule": "Mașină personală",
+    "ficheMobilite": "Mobilitate"
   }
 }

@@ -12,6 +12,8 @@ type Profil = {
   statut: string;
   note: number | null;
   tags: string[];
+  permisB: boolean;
+  vehicule: boolean;
   derniereSaison: number | null;
   telegramConnecte: boolean;
   listeNoire: boolean;
@@ -177,6 +179,12 @@ export default function SelectionContact({
                 </td>
                 <td>
                   <div className="flex max-w-[220px] flex-wrap gap-1">
+                    {p.permisB && (
+                      <span className="badge badge-ok" title="Permis de conduire B">🚗 permis</span>
+                    )}
+                    {p.vehicule && (
+                      <span className="badge badge-ok" title="Véhicule personnel">🚙 véhiculé</span>
+                    )}
                     {p.tags.slice(0, 4).map((t) => (
                       <span key={t} className="badge badge-muted">
                         {t}

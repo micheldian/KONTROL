@@ -187,6 +187,9 @@ model User {
   listeNoireAt       DateTime?
   listeNoireParId    String?
   notesInternes      String?
+  // Mobilité — déclarée par le candidat à l'inscription, corrigeable admin
+  permisB            Boolean      @default(false)
+  vehicule           Boolean      @default(false)
   source             SourceProfil @default(MANUEL)
   actif              Boolean      @default(true)
   clientId           String? // rattachement à un Client si role = CLIENT (portail client)

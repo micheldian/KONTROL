@@ -47,6 +47,8 @@ export async function saveOuvrier(formData: FormData) {
     estChefEquipe: parsed.role === 'CHEF_EQUIPE',
     tauxHoraire: parsed.tauxHoraire ? Number(parsed.tauxHoraire) : null,
     iban: parsed.iban || null,
+    permisB: formData.get('permisB') === 'on',
+    vehicule: formData.get('vehicule') === 'on',
     notesInternes: parsed.notesInternes || null,
     actif: parsed.statutProfil === 'ACTIF',
     ...(parsed.pin ? { pinHash: await bcrypt.hash(parsed.pin, 10) } : {})

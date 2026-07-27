@@ -165,6 +165,8 @@ export async function proposerCandidat(formData: FormData) {
           telephone,
           langue: parsed.langue,
           experienceDeclaree: parsed.experienceDeclaree || null,
+          permisB: formData.get('permisB') === 'on',
+          vehicule: formData.get('vehicule') === 'on',
           source: 'RECRUTEUR',
           competences: { create: tagsValides.map((t) => ({ tagId: t.id })) }
         }

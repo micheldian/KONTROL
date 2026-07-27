@@ -89,6 +89,26 @@ export default function OuvrierForm({ ouvrier }: { ouvrier?: User }) {
         <div>
           <label className="label">IBAN (optionnel)</label>
           <input name="iban" className="input font-mono" defaultValue={ouvrier?.iban ?? ''} />
+          <div className="mt-2 flex gap-4">
+            <label className="flex items-center gap-1.5 text-[13.5px]">
+              <input
+                type="checkbox"
+                name="permisB"
+                defaultChecked={ouvrier?.permisB ?? false}
+                className="h-4 w-4 accent-brand"
+              />
+              🚗 Permis B
+            </label>
+            <label className="flex items-center gap-1.5 text-[13.5px]">
+              <input
+                type="checkbox"
+                name="vehicule"
+                defaultChecked={ouvrier?.vehicule ?? false}
+                className="h-4 w-4 accent-brand"
+              />
+              🚙 Véhicule
+            </label>
+          </div>
         </div>
       </div>
       <div>

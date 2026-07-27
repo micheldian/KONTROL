@@ -77,6 +77,8 @@ export default async function ProfilVivierPage({
           <span className="block text-[13px] font-normal text-muted">
             {profil.telephone} · {profil.langue} · statut {profil.statutProfil} · source{' '}
             {profil.source.toLowerCase()}
+            {profil.permisB && <span className="badge badge-ok ml-2">🚗 permis B</span>}
+            {profil.vehicule && <span className="badge badge-ok ml-1">🚙 véhiculé</span>}
           </span>
         </h1>
         <div className="flex gap-2">

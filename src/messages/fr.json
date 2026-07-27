@@ -106,7 +106,9 @@
     "alreadySent": "Votre candidature est déjà enregistrée. Nous vous rappellerons.",
     "errPhone": "Numéro de téléphone invalide",
     "errRequired": "Champs obligatoires : nom, prénom, téléphone",
-    "errRate": "Trop de tentatives. Réessayez plus tard."
+    "errRate": "Trop de tentatives. Réessayez plus tard.",
+    "permisB": "J'ai le permis de conduire (B)",
+    "vehicule": "J'ai un véhicule personnel"
   },
   "recruiter": {
     "spaceTitle": "Espace recruteurs",
@@ -206,6 +208,9 @@
     "save": "Enregistrer",
     "back": "Retour",
     "thFiche": "Fiche",
-    "voirFiche": "Ouvrir"
+    "voirFiche": "Ouvrir",
+    "permisB": "Permis de conduire (B)",
+    "vehicule": "Véhicule personnel",
+    "ficheMobilite": "Mobilité"
   }
 }
