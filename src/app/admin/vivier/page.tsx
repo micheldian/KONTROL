@@ -6,7 +6,8 @@ import ErreurBanniere from '@/components/admin/ErreurBanniere';
 
 export const dynamic = 'force-dynamic';
 
-const STATUTS = ['CANDIDAT', 'VIVIER', 'ACTIF', 'INACTIF', 'LISTE_NOIRE'] as const;
+// Les candidatures en attente (statut CANDIDAT) ont leur propre page « Candidatures »
+const STATUTS = ['VIVIER', 'ACTIF', 'INACTIF', 'LISTE_NOIRE'] as const;
 const TRIS = ['note', 'nom', 'saison'] as const;
 
 // L'écran clé du vivier : « profils ≥ 4★, tag taille, roumain, statut vivier » en 10 s.
@@ -52,7 +53,8 @@ export default async function VivierPage({
     where: {
       organisationId: user.organisationId,
       role: { in: ['OUVRIER', 'CHEF_EQUIPE'] },
-      ...(statut ? { statutProfil: statut } : {}),
+      // Par défaut : main-d'œuvre actuelle et passée — jamais les candidatures en attente
+      ...(statut ? { statutProfil: statut } : { statutProfil: { not: 'CANDIDAT' as const } }),
       ...(langue ? { langue } : {}),
       ...(noteMin ? { note: { gte: noteMin } } : {}),
       ...(filtrePermis ? { permisB: true } : {}),
@@ -119,8 +121,9 @@ export default async function VivierPage({
       <h1 className="mb-5 text-[21px] font-bold">
         Vivier — mémoire de l’entreprise
         <span className="block text-[13px] font-normal text-muted">
-          {lignes.length} profil{lignes.length > 1 ? 's' : ''} · tous statuts (candidats,
-          vivier, actifs, anciens, liste noire)
+          {lignes.length} profil{lignes.length > 1 ? 's' : ''} · main-d&apos;œuvre actuelle et
+          passée (actifs, vivier, anciens, liste noire) — les candidatures en attente sont
+          dans <a href="/admin/candidatures" className="underline">Candidatures</a>
         </span>
       </h1>
       <ErreurBanniere erreur={searchParams.erreur} />
