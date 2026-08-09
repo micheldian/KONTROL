@@ -1,4 +1,5 @@
 import { requireAdminStrict } from '@/lib/session';
+import ErreurBanniere from '@/components/admin/ErreurBanniere';
 import { prisma } from '@/lib/prisma';
 import { templatesParDefaut } from '@/lib/messaging/templates';
 import { VARIABLES_DISPONIBLES } from '@/lib/contrats';
@@ -30,7 +31,11 @@ const CATEGORIE_MODELE_LIBELLE: Record<string, string> = {
   MUTUELLE_DISPENSE: 'Mutuelle dispense'
 };
 
-export default async function ParametresPage() {
+export default async function ParametresPage({
+  searchParams
+}: {
+  searchParams: { erreur?: string };
+}) {
   const user = await requireAdminStrict();
   const [org, comptes, tags, clients, modeles] = await Promise.all([
     prisma.organisation.findUnique({ where: { id: user.organisationId } }),
@@ -68,6 +73,8 @@ export default async function ParametresPage() {
         Paramètres — {org.nom}
         <span className="block text-[13px] font-normal text-muted">ADMIN uniquement</span>
       </h1>
+
+      <ErreurBanniere erreur={searchParams.erreur} />
 
       {/* Généraux + intégrations */}
       <form action={majParametres} className="card mb-6 space-y-4 p-5">

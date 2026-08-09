@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
@@ -108,7 +109,21 @@ const compteSchema = z.object({
 /** Crée un compte ADMIN, MANAGER ou CLIENT (portail client lecture seule). */
 export async function creerCompte(formData: FormData) {
   const user = await requireAdminStrict();
-  const parsed = compteSchema.parse(Object.fromEntries(formData.entries()));
+
+  // Erreurs prévisibles → bandeau clair sur la page (jamais d'écran technique)
+  const parse = compteSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parse.success) {
+    const mdpCourt = parse.error.issues.some((i) => i.path[0] === 'motDePasse');
+    redirect(
+      '/admin/parametres?erreur=' +
+        encodeURIComponent(
+          mdpCourt
+            ? 'Mot de passe trop court : 8 caractères minimum.'
+            : 'Formulaire incomplet : vérifiez prénom, nom, email et téléphone.'
+        )
+    );
+  }
+  const parsed = parse.data;
   const telephone = normalisePhone(parsed.telephone);
 
   let clientId: string | null = null;
@@ -116,14 +131,21 @@ export async function creerCompte(formData: FormData) {
     const client = await prisma.client.findFirst({
       where: { id: parsed.clientId ?? '', organisationId: user.organisationId }
     });
-    if (!client) throw new Error('Un compte CLIENT doit être rattaché à un client');
-    clientId = client.id;
+    if (!client) redirect('/admin/parametres?erreur=' + encodeURIComponent('Un compte CLIENT doit être rattaché à un client.'));
+    clientId = client!.id;
   }
 
   const conflit = await prisma.user.findFirst({
     where: { OR: [{ email: parsed.email.toLowerCase() }, { telephone }] }
   });
-  if (conflit) throw new Error('Email ou téléphone déjà utilisé');
+  if (conflit) {
+    redirect(
+      '/admin/parametres?erreur=' +
+        encodeURIComponent(
+          `Un compte existe déjà avec cet email ou ce téléphone (${conflit.prenom} ${conflit.nom}). Rien n'a été créé.`
+        )
+    );
+  }
 
   const compte = await prisma.user.create({
     data: {
@@ -154,7 +176,9 @@ export async function creerCompte(formData: FormData) {
 export async function desactiverCompte(formData: FormData) {
   const user = await requireAdminStrict();
   const id = formData.get('id') as string;
-  if (id === user.userId) throw new Error('Impossible de désactiver son propre compte');
+  if (id === user.userId) {
+    redirect('/admin/parametres?erreur=' + encodeURIComponent('Impossible de désactiver son propre compte.'));
+  }
 
   const compte = await prisma.user.findFirst({
     where: {
