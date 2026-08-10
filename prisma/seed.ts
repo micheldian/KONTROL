@@ -58,15 +58,15 @@ async function main() {
 
   await prisma.user.upsert({
     where: { telephone: '+33600000002' },
-    update: {},
+    update: { role: 'MANAGER', email: 'manager@pickajob.fr' },
     create: {
       organisationId: org.id,
-      role: 'RH',
+      role: 'MANAGER',
       statutProfil: 'ACTIF',
       nom: 'Pickajob',
-      prenom: 'RH',
+      prenom: 'Arthur',
       telephone: '+33600000002',
-      email: 'rh@pickajob.fr',
+      email: 'manager@pickajob.fr',
       motDePasseHash: mdp,
       langue: 'FR'
     }
@@ -143,7 +143,8 @@ async function main() {
       nom: 'Domaine Schmitt',
       contact: 'Paul Schmitt',
       telephone: '+33388000001',
-      adresse: '12 route des Vignes, Eguisheim'
+      adresse: '12 route des Vignes, Eguisheim',
+      couleur: '#2E7D32'
     }
   });
 
@@ -156,7 +157,26 @@ async function main() {
       nom: 'EARL Muller',
       contact: 'Anne Muller',
       telephone: '+33388000002',
-      adresse: '4 chemin du Florimont, Ingersheim'
+      adresse: '4 chemin du Florimont, Ingersheim',
+      couleur: '#F57C00'
+    }
+  });
+
+  // Compte CLIENT de démo (portail /client, lecture seule)
+  await prisma.user.upsert({
+    where: { telephone: '+33388000001' },
+    update: { role: 'CLIENT', clientId: schmitt.id },
+    create: {
+      organisationId: org.id,
+      role: 'CLIENT',
+      statutProfil: 'ACTIF',
+      nom: 'Schmitt',
+      prenom: 'Paul',
+      telephone: '+33388000001',
+      email: 'client@domaine-schmitt.fr',
+      motDePasseHash: mdp,
+      langue: 'FR',
+      clientId: schmitt.id
     }
   });
 
@@ -177,13 +197,40 @@ async function main() {
     }
   });
 
+  // Petit carré de démo autour d'un centroïde (remplacé par la vraie géométrie IGN à l'usage)
+  const carre = (lat: number, lng: number, d = 0.0012) => ({
+    type: 'MultiPolygon',
+    coordinates: [
+      [
+        [
+          [lng - d, lat - d],
+          [lng + d, lat - d],
+          [lng + d, lat + d],
+          [lng - d, lat + d],
+          [lng - d, lat - d]
+        ]
+      ]
+    ]
+  });
+
   await prisma.parcelle.upsert({
     where: { id: 'parcelle-schmitt-est' },
-    update: {},
+    update: { clientId: schmitt.id, organisationId: org.id },
     create: {
       id: 'parcelle-schmitt-est',
-      missionId: missionSchmitt.id,
+      organisationId: org.id,
+      clientId: schmitt.id,
+      codeInsee: '68078',
+      commune: 'Eguisheim',
+      section: 'AB',
+      numero: '0123',
+      geometry: carre(48.0431, 7.2977),
+      centroidLat: 48.0431,
+      centroidLng: 7.2977,
+      surfaceM2: 5200,
       adresse: '12 route des Vignes, Eguisheim',
+      cepage: 'Riesling',
+      millesime: 2021,
       instructions: 'Relevage parcelle Est. Apporter sécateurs.'
     }
   });
@@ -205,11 +252,22 @@ async function main() {
 
   await prisma.parcelle.upsert({
     where: { id: 'parcelle-muller-florimont' },
-    update: {},
+    update: { clientId: muller.id, organisationId: org.id },
     create: {
       id: 'parcelle-muller-florimont',
-      missionId: missionMuller.id,
+      organisationId: org.id,
+      clientId: muller.id,
+      codeInsee: '68155',
+      commune: 'Ingersheim',
+      section: 'AC',
+      numero: '0045',
+      geometry: carre(48.0968, 7.3052),
+      centroidLat: 48.0968,
+      centroidLng: 7.3052,
+      surfaceM2: 8400,
       adresse: '4 chemin du Florimont, Ingersheim',
+      cepage: 'Gewurztraminer',
+      millesime: 2019,
       instructions: 'Pause 30 min à 13h. Eau fournie sur place.'
     }
   });
@@ -251,7 +309,6 @@ async function main() {
       organisationId: org.id,
       date: aujourdhui,
       missionId: missionSchmitt.id,
-      parcelleId: 'parcelle-schmitt-est',
       heureDebut: '07:30',
       heureFinPrevue: '11:00',
       pauseMinutesPrevue: 0,
@@ -268,7 +325,6 @@ async function main() {
       organisationId: org.id,
       date: aujourdhui,
       missionId: missionMuller.id,
-      parcelleId: 'parcelle-muller-florimont',
       heureDebut: '11:30',
       heureFinPrevue: '18:00',
       pauseMinutesPrevue: 30,
@@ -276,6 +332,16 @@ async function main() {
       publieAt: new Date()
     }
   });
+  for (const [affId, parcId] of [
+    [aff1.id, 'parcelle-schmitt-est'],
+    [aff2.id, 'parcelle-muller-florimont']
+  ] as const) {
+    await prisma.affectationParcelle.upsert({
+      where: { affectationId_parcelleId: { affectationId: affId, parcelleId: parcId } },
+      update: {},
+      create: { affectationId: affId, parcelleId: parcId }
+    });
+  }
   for (const [affId, userIds] of [
     [aff1.id, [chef.id, vasile.id, andrei!.id]],
     [aff2.id, [vasile.id]]

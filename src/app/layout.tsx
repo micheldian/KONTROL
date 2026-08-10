@@ -50,6 +50,13 @@ export default async function RootLayout({
         <NextIntlClientProvider locale={locale} messages={messages}>
           {children}
         </NextIntlClientProvider>
+        {/* Remplace/actualise tout ancien service worker (purge des caches périmés, sw.js v2) */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(function(){})}"
+          }}
+        />
       </body>
     </html>
   );

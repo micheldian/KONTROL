@@ -13,6 +13,8 @@ const candidatureSchema = z.object({
   langue: z.enum(['FR', 'RO', 'ES']),
   experience: z.string().trim().max(1000).optional(),
   tagIds: z.array(z.string()).max(30),
+  permisB: z.boolean().optional(),
+  vehicule: z.boolean().optional(),
   // Honeypot : champ invisible, doit rester vide (anti-bot sans captcha)
   siteweb: z.string().max(0, 'SPAM')
 });
@@ -69,17 +71,21 @@ export async function envoyerCandidature(input: unknown): Promise<ResultatCandid
         telephone,
         langue: d.langue,
         experienceDeclaree: d.experience || null,
+        permisB: !!d.permisB,
+        vehicule: !!d.vehicule,
         source: 'PORTAIL'
       }
     }));
 
   if (existant) {
     // Rattachement : on complète l'expérience déclarée sans écraser le profil
-    if (d.experience && !existant.experienceDeclaree) {
-      await prisma.user.update({
-        where: { id: existant.id },
-        data: { experienceDeclaree: d.experience }
-      });
+    const complement: Record<string, unknown> = {};
+    if (d.experience && !existant.experienceDeclaree) complement.experienceDeclaree = d.experience;
+    // Mobilité : on complète (jamais de rétrogradation en cas de re-candidature)
+    if (d.permisB && !existant.permisB) complement.permisB = true;
+    if (d.vehicule && !existant.vehicule) complement.vehicule = true;
+    if (Object.keys(complement).length > 0) {
+      await prisma.user.update({ where: { id: existant.id }, data: complement });
     }
     const dejaEnAttente = await prisma.candidature.findFirst({
       where: { userId: existant.id, statut: 'EN_ATTENTE' }

@@ -48,6 +48,27 @@ export class TelegramChannel implements MessageChannel {
       return { statut: 'ECHEC', detail: String(e) };
     }
   }
+
+  /** sendLocation : un point par parcelle → l'ouvrier ouvre l'itinéraire en un tap (spec §5.4). */
+  async envoyerLocalisation(
+    telegramChatId: string | null,
+    lat: number,
+    lng: number
+  ): Promise<ResultatEnvoi> {
+    if (!this.token) return { statut: 'SIMULE' };
+    if (!telegramChatId) return { statut: 'ECHEC', detail: 'Chat Telegram inconnu' };
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${this.token}/sendLocation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: telegramChatId, latitude: lat, longitude: lng })
+      });
+      const json = (await res.json()) as { ok: boolean; description?: string };
+      return json.ok ? { statut: 'ENVOYE' } : { statut: 'ECHEC', detail: json.description };
+    } catch (e) {
+      return { statut: 'ECHEC', detail: String(e) };
+    }
+  }
 }
 
 /** Niveau 1 : pas d'envoi serveur — on journalise et l'admin clique le lien wa.me. */

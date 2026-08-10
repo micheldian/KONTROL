@@ -2,6 +2,8 @@ import { requireWorker } from '@/lib/session';
 import { getTranslations, getLocale } from 'next-intl/server';
 import { prisma } from '@/lib/prisma';
 import { todayParis, addDays, dateFromYMD, formatJour } from '@/lib/dates';
+import { itineraireUrl, refParcelle } from '@/lib/geo';
+import ParcelleMiniCarte from '@/components/ParcelleMiniCarte';
 import ConfirmButton from './confirm-button';
 
 export const dynamic = 'force-dynamic';
@@ -20,16 +22,12 @@ async function affectationsDuJour(userId: string, organisationId: string, date: 
       affectation: {
         include: {
           mission: { include: { client: true } },
-          parcelle: true
+          parcelles: { include: { parcelle: true } }
         }
       }
     },
     orderBy: { affectation: { heureDebut: 'asc' } }
   });
-}
-
-function mapsUrl(adresse: string) {
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(adresse)}`;
 }
 
 export default async function TodayPage() {
@@ -46,7 +44,10 @@ export default async function TodayPage() {
 
   const renderCard = (ao: (typeof dAujourdhui)[number], confirmable: boolean) => {
     const a = ao.affectation;
-    const adresse = a.parcelle?.adresse ?? a.mission.client.adresse ?? '';
+    const parcelles = a.parcelles.map((ap) => ap.parcelle);
+    // Fallback : adresse client si aucune parcelle
+    const routeClient = parcelles.length === 0 ? itineraireUrl({ adresse: a.mission.client.adresse }) : null;
+    const premiereAvecGeo = parcelles.find((p) => p.geometry);
     return (
       <div key={ao.id} className="card mb-3.5">
         <span className="slot-chip mb-2.5">
@@ -58,20 +59,42 @@ export default async function TodayPage() {
           {a.mission.libelle}
           {a.pauseMinutesPrevue ? ` · ${t('pause', { min: a.pauseMinutesPrevue })}` : ''}
         </div>
-        {adresse && <div className="mb-2 text-[14px] text-muted">📍 {adresse}</div>}
+        {parcelles.map((p) => (
+          <div key={p.id} className="mb-1 flex items-center gap-2 text-[14px] text-muted">
+            <span className="flex-1">📍 {refParcelle(p)}</span>
+            {itineraireUrl(p) && parcelles.length > 1 && (
+              <a
+                href={itineraireUrl(p)!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-sm btn-outline"
+              >
+                🧭 {t('route')}
+              </a>
+            )}
+          </div>
+        ))}
+        {premiereAvecGeo && (
+          <ParcelleMiniCarte geometry={premiereAvecGeo.geometry} className="mb-2 mt-1" />
+        )}
         {a.instructions && (
           <div className="mb-3 rounded-r-lg border-l-[3px] border-amber bg-[#FFF7E3] px-2.5 py-2 text-[13.5px]">
             {a.instructions}
           </div>
         )}
         <div className="flex gap-2.5">
-          {adresse && (
+          {parcelles.length === 1 && itineraireUrl(parcelles[0]) && (
             <a
-              href={mapsUrl(adresse)}
+              href={itineraireUrl(parcelles[0])!}
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn-ink flex-1"
             >
+              {t('route')}
+            </a>
+          )}
+          {routeClient && (
+            <a href={routeClient} target="_blank" rel="noopener noreferrer" className="btn btn-ink flex-1">
               {t('route')}
             </a>
           )}

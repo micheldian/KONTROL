@@ -13,6 +13,10 @@ const clientSchema = z.object({
   telephone: z.string().trim().optional(),
   email: z.string().trim().optional(),
   adresse: z.string().trim().optional(),
+  couleur: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .default('#FF5722'),
   pennylaneCustomerId: z.string().trim().optional(),
   notes: z.string().trim().optional()
 });
@@ -27,6 +31,8 @@ export async function saveClient(formData: FormData) {
     telephone: parsed.telephone || null,
     email: parsed.email || null,
     adresse: parsed.adresse || null,
+    couleur: parsed.couleur,
+    afficherTarifAuClient: formData.get('afficherTarifAuClient') === 'on',
     pennylaneCustomerId: parsed.pennylaneCustomerId || null,
     notes: parsed.notes || null
   };
@@ -68,11 +74,17 @@ export async function deleteClient(formData: FormData) {
   const id = formData.get('id') as string;
   const client = await prisma.client.findFirst({
     where: { id, organisationId: user.organisationId },
-    include: { _count: { select: { missions: true } } }
+    include: { _count: { select: { missions: true, parcelles: true, users: true } } }
   });
   if (!client) throw new Error('Client introuvable');
   if (client._count.missions > 0) {
     throw new Error('Impossible : ce client a des missions.');
+  }
+  if (client._count.parcelles > 0) {
+    throw new Error('Impossible : ce client a des parcelles (supprimez-les d’abord).');
+  }
+  if (client._count.users > 0) {
+    throw new Error('Impossible : des comptes portail sont rattachés à ce client.');
   }
   await prisma.client.delete({ where: { id } });
   await audit({

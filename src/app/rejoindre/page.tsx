@@ -43,6 +43,8 @@ export default async function RejoindrePage() {
           experience: t('experience'),
           experiencePlaceholder: t('experiencePlaceholder'),
           skills: t('skills'),
+          permisB: t('permisB'),
+          vehicule: t('vehicule'),
           send: t('send'),
           thanks: t('thanks'),
           thanksText: t('thanksText'),

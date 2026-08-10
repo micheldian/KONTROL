@@ -1,11 +1,19 @@
-/* Service worker Krontrol — PWA installable + notifications push. */
+/* Service worker Krontrol — PWA installable + notifications push.
+   v2 : purge tous les caches à l'activation (remplace un éventuel ancien
+   service worker qui servirait des fichiers périmés). */
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    (async () => {
+      const cles = await caches.keys();
+      await Promise.all(cles.map((c) => caches.delete(c)));
+      await self.clients.claim();
+    })()
+  );
 });
 
 // Notifications push (affectation publiée, rappel 19h, acompte traité, récap dispo)

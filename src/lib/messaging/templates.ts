@@ -2,19 +2,24 @@
 // Défauts dans le code, surchargeables par organisation via parametres.templates
 // (édition dans Paramètres, phase 12).
 
-export type TemplateContexte = 'AFFECTATION' | 'RECAP' | 'VIVIER';
+export type TemplateContexte = 'AFFECTATION' | 'RECAP' | 'VIVIER' | 'DEMANDE';
 export type LangueCode = 'FR' | 'RO' | 'ES';
 
 const DEFAUTS: Record<TemplateContexte, Record<LangueCode, string>> = {
   AFFECTATION: {
-    FR: 'Bonjour {prenom} 👋\nVotre mission : {client} — {mission}\n📅 {date} à {heure}\n📍 {adresse}\n{instructions}',
-    RO: 'Bună ziua {prenom} 👋\nMisiunea dvs.: {client} — {mission}\n📅 {date} la {heure}\n📍 {adresse}\n{instructions}',
-    ES: 'Hola {prenom} 👋\nSu misión: {client} — {mission}\n📅 {date} a las {heure}\n📍 {adresse}\n{instructions}'
+    FR: 'Bonjour {prenom} 👋\n🌿 MISSION — {date}\nClient : {client} — {mission}\nTravaux : {travaux}\n🕖 {heure}\n{parcelles}\n{instructions}',
+    RO: 'Bună ziua {prenom} 👋\n🌿 MISIUNE — {date}\nClient: {client} — {mission}\nLucrări: {travaux}\n🕖 {heure}\n{parcelles}\n{instructions}',
+    ES: 'Hola {prenom} 👋\n🌿 MISIÓN — {date}\nCliente: {client} — {mission}\nTrabajos: {travaux}\n🕖 {heure}\n{parcelles}\n{instructions}'
   },
   RECAP: {
     FR: 'Bonjour {prenom}, votre récapitulatif {mois} est prêt : net à recevoir {net}. Ouvrez Krontrol pour le détail.',
     RO: 'Bună ziua {prenom}, recapitularea {mois} este gata: net de primit {net}. Deschideți Krontrol pentru detalii.',
     ES: 'Hola {prenom}, su resumen de {mois} está listo: neto a recibir {net}. Abra Krontrol para el detalle.'
+  },
+  DEMANDE: {
+    FR: '📢 {organisation} recherche : {titre}\n👥 {nbPersonnes} personnes · 📅 {dates}\n📍 {region}\n💰 Commission : {commission} € par personne placée\nProposez vos candidats : {lien}',
+    RO: '📢 {organisation} caută: {titre}\n👥 {nbPersonnes} persoane · 📅 {dates}\n📍 {region}\n💰 Comision: {commission} € per persoană plasată\nPropuneți candidații dvs.: {lien}',
+    ES: '📢 {organisation} busca: {titre}\n👥 {nbPersonnes} personas · 📅 {dates}\n📍 {region}\n💰 Comisión: {commission} € por persona colocada\nProponga sus candidatos: {lien}'
   },
   VIVIER: {
     FR: 'Bonjour {prenom}, c’est {organisation} : on a une mission pour vous ! Répondez à ce message ou rappelez-nous.',
