@@ -16,6 +16,7 @@ import {
   configSms,
   envoyerEtJournaliser,
   lienSms,
+  lienWaMe,
   telegramToken
 } from '@/lib/messaging/channel';
 import { lienConnexion } from '@/lib/messaging/templates';
@@ -350,8 +351,9 @@ export async function contacterProfil(input: unknown) {
 const smsConnexionSchema = z.object({
   userId: z.string().min(1),
   contenu: z.string().trim().min(1).max(1000),
-  // SERVEUR : envoi Twilio (simulation si non configuré) ; LIEN : ouvre l'app SMS de l'admin
-  mode: z.enum(['SERVEUR', 'LIEN'])
+  // SERVEUR : envoi Twilio (simulation si non configuré) ; LIEN : ouvre l'app SMS de l'admin ;
+  // WHATSAPP : lien wa.me pré-rempli (comme le message mission)
+  mode: z.enum(['SERVEUR', 'LIEN', 'WHATSAPP'])
 });
 
 export type ResultatSmsConnexion = {
@@ -361,12 +363,13 @@ export type ResultatSmsConnexion = {
   detail?: string;
   pin?: string;
   lienSms?: string;
+  lienWhatsApp?: string;
   active?: boolean;
 };
 
 /**
- * SMS de connexion depuis le vivier : lien pré-langué (+ téléphone pré-rempli) et
- * NOUVEAU PIN à 4 chiffres. Le PIN étant haché en base, il est régénéré à chaque envoi
+ * Message de connexion depuis le vivier (SMS ou WhatsApp) : lien pré-langué
+ * (+ téléphone pré-rempli) et NOUVEAU PIN à 4 chiffres. Le PIN étant haché en base, il est régénéré à chaque envoi
  * (l'ancien ne fonctionne plus). Profil VIVIER/INACTIF → passe en ACTIF (même verrou
  * dossier d'embauche que la réactivation) pour que le lien serve immédiatement.
  * Le PIN est masqué dans le journal EnvoiMessage.
@@ -440,7 +443,7 @@ export async function envoyerSmsConnexion(input: unknown): Promise<ResultatSmsCo
 
     const resultat = await envoyerEtJournaliser({
       organisationId: user.organisationId,
-      canal: 'SMS',
+      canal: parsed.mode === 'WHATSAPP' ? 'WHATSAPP' : 'SMS',
       contexte: 'CONNEXION',
       destinataire: {
         id: profil.id,
@@ -452,7 +455,7 @@ export async function envoyerSmsConnexion(input: unknown): Promise<ResultatSmsCo
       channel:
         parsed.mode === 'SERVEUR'
           ? new SmsChannel(configSms(profil.organisation.parametres))
-          : new WhatsAppLinkChannel() // LIEN_GENERE : l'admin envoie depuis son téléphone
+          : new WhatsAppLinkChannel() // LIEN_GENERE : l'admin envoie depuis son téléphone (SMS ou WhatsApp)
     });
 
     revalidatePath('/admin/vivier');
@@ -464,7 +467,8 @@ export async function envoyerSmsConnexion(input: unknown): Promise<ResultatSmsCo
       detail: resultat.detail,
       pin,
       active: activer,
-      lienSms: parsed.mode === 'LIEN' ? lienSms(profil.telephone, contenu) : undefined
+      lienSms: parsed.mode === 'LIEN' ? lienSms(profil.telephone, contenu) : undefined,
+      lienWhatsApp: parsed.mode === 'WHATSAPP' ? lienWaMe(profil.telephone, contenu) : undefined
     };
   } catch (e) {
     return { ok: false, erreur: e instanceof Error ? e.message : 'Erreur inattendue' };

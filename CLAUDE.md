@@ -163,8 +163,8 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       (Paramètres). 2 cartes dashboard (embauches en cours/DPAE urgente, pièces expirant
       < 30 j). Migration : `prisma/migration-embauche.sql` (appliquée en prod).
 
-- [x] **SMS de connexion (vivier)** : « Contacter le vivier » a un second mode « 📲 SMS de
-      connexion » — lien pré-langué `/?lang=ro&tel=407…` (middleware pose le cookie de langue,
+- [x] **Message de connexion (vivier)** : « Contacter le vivier » a un second mode « 🔑 Message
+      de connexion » envoyé par **WhatsApp** (wa.me pré-rempli, usage habituel) ou SMS — lien pré-langué `/?lang=ro&tel=407…` (middleware pose le cookie de langue,
       la page de connexion pré-remplit le téléphone) + **nouveau PIN à 4 chiffres** généré à
       l'envoi (le PIN est haché, donc régénéré ; l'ancien cesse de fonctionner). Profil
       VIVIER/INACTIF → ACTIF (même verrou dossier d'embauche que la réactivation). Canal

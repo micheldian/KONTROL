@@ -77,7 +77,7 @@ export default async function ContactVivierPage({
           Contacter le vivier
           <span className="block text-[13px] font-normal text-muted">
             {destinataires.length} destinataire{destinataires.length > 1 ? 's' : ''} ·
-            message dans la langue du profil, éditable avant envoi · SMS de connexion (lien + PIN)
+            message dans la langue du profil, éditable avant envoi · message de connexion (lien + PIN)
           </span>
         </h1>
         <Link href="/admin/vivier" className="btn-sm btn-outline">

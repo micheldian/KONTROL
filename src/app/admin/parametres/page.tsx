@@ -22,7 +22,7 @@ const CONTEXTES = [
   { key: 'RECAP', titre: 'Récapitulatif mensuel' },
   { key: 'VIVIER', titre: 'Vivier (« on a une mission pour vous »)' },
   { key: 'DEMANDE', titre: 'Demande de main-d’œuvre (envoi aux recruteurs)' },
-  { key: 'CONNEXION', titre: 'SMS de connexion (vivier : lien + PIN — {pin} obligatoire)' }
+  { key: 'CONNEXION', titre: 'Message de connexion (vivier, WhatsApp/SMS : lien + PIN — {pin} obligatoire)' }
 ] as const;
 const LANGUES = ['FR', 'RO', 'ES'] as const;
 
@@ -301,7 +301,7 @@ export default async function ParametresPage({
         <h2 className="text-[16px] font-bold">Modèles de messages (3 langues)</h2>
         <p className="text-[12.5px] text-muted">
           Variables : {'{prenom} {client} {mission} {travaux} {date} {heure} {parcelles} {adresse} {instructions} {mois} {net} {organisation}'}
-          {' '}— SMS de connexion : {'{lien} {telephone} {pin}'}. Vide = modèle par défaut.
+          {' '}— message de connexion : {'{lien} {telephone} {pin}'}. Vide = modèle par défaut.
         </p>
         {CONTEXTES.map((c) => (
           <div key={c.key}>
