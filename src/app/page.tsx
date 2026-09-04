@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import LangSwitcher from '@/components/LangSwitcher';
 import WorkerLogin from './worker-login';
 
@@ -10,7 +11,9 @@ export default function LoginPage() {
         </div>
         <LangSwitcher />
       </div>
-      <WorkerLogin />
+      <Suspense fallback={null}>
+        <WorkerLogin />
+      </Suspense>
     </main>
   );
 }

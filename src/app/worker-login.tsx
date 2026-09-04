@@ -2,14 +2,19 @@
 
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 
 export default function WorkerLogin() {
   const t = useTranslations('login');
   const router = useRouter();
-  const [phone, setPhone] = useState('');
+  const searchParams = useSearchParams();
+  // Lien de connexion envoyé par SMS : /?lang=ro&tel=407… → téléphone pré-rempli
+  const [phone, setPhone] = useState(() => {
+    const tel = (searchParams.get('tel') ?? '').replace(/[^\d]/g, '');
+    return tel.length >= 8 ? `+${tel}` : '';
+  });
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

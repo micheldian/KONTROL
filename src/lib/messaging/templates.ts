@@ -2,7 +2,7 @@
 // Défauts dans le code, surchargeables par organisation via parametres.templates
 // (édition dans Paramètres, phase 12).
 
-export type TemplateContexte = 'AFFECTATION' | 'RECAP' | 'VIVIER' | 'DEMANDE';
+export type TemplateContexte = 'AFFECTATION' | 'RECAP' | 'VIVIER' | 'DEMANDE' | 'CONNEXION';
 export type LangueCode = 'FR' | 'RO' | 'ES';
 
 const DEFAUTS: Record<TemplateContexte, Record<LangueCode, string>> = {
@@ -25,8 +25,20 @@ const DEFAUTS: Record<TemplateContexte, Record<LangueCode, string>> = {
     FR: 'Bonjour {prenom}, c’est {organisation} : on a une mission pour vous ! Répondez à ce message ou rappelez-nous.',
     RO: 'Bună ziua {prenom}, suntem {organisation}: avem o misiune pentru dvs.! Răspundeți la acest mesaj sau sunați-ne.',
     ES: 'Hola {prenom}, somos {organisation}: ¡tenemos una misión para usted! Responda a este mensaje o llámenos.'
+  },
+  // SMS de connexion (vivier) : lien pré-langué + téléphone + PIN. {pin} est obligatoire.
+  CONNEXION: {
+    FR: '{organisation} — Bonjour {prenom}, voici votre accès Krontrol :\n{lien}\nTéléphone : {telephone}\nCode PIN : {pin}\nGardez ce message.',
+    RO: '{organisation} — Bună ziua {prenom}, iată accesul dvs. Krontrol:\n{lien}\nTelefon: {telephone}\nCod PIN: {pin}\nPăstrați acest mesaj.',
+    ES: '{organisation} — Hola {prenom}, aquí tiene su acceso a Krontrol:\n{lien}\nTeléfono: {telephone}\nCódigo PIN: {pin}\nGuarde este mensaje.'
   }
 };
+
+/** Lien de connexion ouvrier : langue du profil + téléphone pré-rempli (sans « + » : lisible en SMS). */
+export function lienConnexion(langue: LangueCode, telephone: string, base = process.env.NEXTAUTH_URL ?? ''): string {
+  const tel = telephone.replace(/[^\d]/g, '');
+  return `${base.replace(/\/$/, '')}/?lang=${langue.toLowerCase()}&tel=${tel}`;
+}
 
 /** Rend un template avec ses variables ; les lignes vides résiduelles sont nettoyées. */
 export function renduTemplate(

@@ -8,12 +8,17 @@ import { prisma } from '@/lib/prisma';
 import { requireAdmin, requireAdminStrict } from '@/lib/session';
 import { audit } from '@/lib/audit';
 import { todayParis, dateFromYMD } from '@/lib/dates';
+import { randomInt } from 'crypto';
 import {
+  SmsChannel,
   TelegramChannel,
   WhatsAppLinkChannel,
+  configSms,
   envoyerEtJournaliser,
+  lienSms,
   telegramToken
 } from '@/lib/messaging/channel';
+import { lienConnexion } from '@/lib/messaging/templates';
 import { dossierBloquant, manquants, LIBELLES_CHECKLIST } from '@/lib/embauche';
 
 /** Note 5★ unique — modifiable UNIQUEMENT par ADMIN, jamais visible par l'ouvrier (règle 13). */
@@ -340,4 +345,128 @@ export async function contacterProfil(input: unknown) {
         : new WhatsAppLinkChannel()
   });
   return resultat;
+}
+
+const smsConnexionSchema = z.object({
+  userId: z.string().min(1),
+  contenu: z.string().trim().min(1).max(1000),
+  // SERVEUR : envoi Twilio (simulation si non configuré) ; LIEN : ouvre l'app SMS de l'admin
+  mode: z.enum(['SERVEUR', 'LIEN'])
+});
+
+export type ResultatSmsConnexion = {
+  ok: boolean;
+  erreur?: string;
+  statut?: 'ENVOYE' | 'SIMULE' | 'ECHEC' | 'LIEN_GENERE';
+  detail?: string;
+  pin?: string;
+  lienSms?: string;
+  active?: boolean;
+};
+
+/**
+ * SMS de connexion depuis le vivier : lien pré-langué (+ téléphone pré-rempli) et
+ * NOUVEAU PIN à 4 chiffres. Le PIN étant haché en base, il est régénéré à chaque envoi
+ * (l'ancien ne fonctionne plus). Profil VIVIER/INACTIF → passe en ACTIF (même verrou
+ * dossier d'embauche que la réactivation) pour que le lien serve immédiatement.
+ * Le PIN est masqué dans le journal EnvoiMessage.
+ */
+export async function envoyerSmsConnexion(input: unknown): Promise<ResultatSmsConnexion> {
+  try {
+    const user = await requireAdmin();
+    const parsed = smsConnexionSchema.parse(input);
+    if (!/\{pin\}/.test(parsed.contenu)) {
+      return { ok: false, erreur: 'Le message doit contenir {pin}' };
+    }
+
+    const profil = await prisma.user.findFirst({
+      where: { id: parsed.userId, organisationId: user.organisationId },
+      include: { organisation: true }
+    });
+    if (!profil) return { ok: false, erreur: 'Profil introuvable' };
+    if (profil.role !== 'OUVRIER' && profil.role !== 'CHEF_EQUIPE') {
+      return { ok: false, erreur: 'Réservé aux profils ouvriers' };
+    }
+    if (profil.statutProfil === 'LISTE_NOIRE') {
+      return { ok: false, erreur: 'Profil en liste noire — contact bloqué' };
+    }
+    if (profil.statutProfil === 'CANDIDAT') {
+      return { ok: false, erreur: 'Candidature à valider avant d’ouvrir l’accès' };
+    }
+    const activer = profil.statutProfil !== 'ACTIF' || !profil.actif;
+    if (activer) {
+      const bloquant = await dossierBloquant(user.organisationId, profil.id);
+      if (bloquant) {
+        return {
+          ok: false,
+          erreur: `Dossier d'embauche incomplet (${manquants(bloquant.checklist)
+            .map((m) => LIBELLES_CHECKLIST[m])
+            .join(', ')}) — activez depuis le dossier`
+        };
+      }
+    }
+
+    const pin = String(randomInt(0, 10000)).padStart(4, '0');
+    await prisma.user.update({
+      where: { id: profil.id },
+      data: {
+        pinHash: await bcrypt.hash(pin, 10),
+        pinEchecs: 0,
+        pinBloqueJusqua: null,
+        ...(activer ? { statutProfil: 'ACTIF', actif: true } : {})
+      }
+    });
+    await audit({
+      organisationId: user.organisationId,
+      userId: user.userId,
+      action: 'vivier.smsConnexion',
+      entite: 'User',
+      entiteId: profil.id,
+      avant: { statutProfil: profil.statutProfil },
+      apres: { statutProfil: 'ACTIF', pinChange: true, mode: parsed.mode }
+    });
+
+    const vars: Record<string, string> = {
+      prenom: profil.prenom,
+      organisation: profil.organisation.nom,
+      telephone: profil.telephone,
+      lien: lienConnexion(profil.langue, profil.telephone),
+      pin
+    };
+    const rendu = (p: string) =>
+      parsed.contenu.replace(/\{(\w+)\}/g, (_, k: string) => (k === 'pin' ? p : vars[k] ?? ''));
+    const contenu = rendu(pin);
+    const contenuJournal = rendu('••••');
+
+    const resultat = await envoyerEtJournaliser({
+      organisationId: user.organisationId,
+      canal: 'SMS',
+      contexte: 'CONNEXION',
+      destinataire: {
+        id: profil.id,
+        telephone: profil.telephone,
+        telegramChatId: profil.telegramChatId
+      },
+      contenu,
+      contenuJournal,
+      channel:
+        parsed.mode === 'SERVEUR'
+          ? new SmsChannel(configSms(profil.organisation.parametres))
+          : new WhatsAppLinkChannel() // LIEN_GENERE : l'admin envoie depuis son téléphone
+    });
+
+    revalidatePath('/admin/vivier');
+    revalidatePath(`/admin/vivier/${profil.id}`);
+    revalidatePath('/admin/ouvriers');
+    return {
+      ok: true,
+      statut: resultat.statut,
+      detail: resultat.detail,
+      pin,
+      active: activer,
+      lienSms: parsed.mode === 'LIEN' ? lienSms(profil.telephone, contenu) : undefined
+    };
+  } catch (e) {
+    return { ok: false, erreur: e instanceof Error ? e.message : 'Erreur inattendue' };
+  }
 }

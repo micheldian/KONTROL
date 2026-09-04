@@ -23,7 +23,11 @@ export async function majParametres(formData: FormData) {
     regleDepartLogementInclus: formData.get('regleDepartLogementInclus') === 'on',
     afficherNomsOuvriersAuClient: formData.get('afficherNomsOuvriersAuClient') === 'on',
     telegramBotToken: ((formData.get('telegramBotToken') as string) || '').trim(),
-    pennylaneApiKey: ((formData.get('pennylaneApiKey') as string) || '').trim()
+    pennylaneApiKey: ((formData.get('pennylaneApiKey') as string) || '').trim(),
+    // SMS de connexion (Twilio) — vide = simulation / envoi depuis le téléphone de l'admin
+    smsTwilioSid: ((formData.get('smsTwilioSid') as string) || '').trim(),
+    smsTwilioToken: ((formData.get('smsTwilioToken') as string) || '').trim(),
+    smsExpediteur: ((formData.get('smsExpediteur') as string) || '').trim()
   };
 
   // Module recruteurs : commission fixe + délais anti-abus (phase 17)
@@ -59,7 +63,7 @@ export async function majParametres(formData: FormData) {
   revalidatePath('/admin/parametres');
 }
 
-const CONTEXTES = ['AFFECTATION', 'RECAP', 'VIVIER', 'DEMANDE'] as const;
+const CONTEXTES = ['AFFECTATION', 'RECAP', 'VIVIER', 'DEMANDE', 'CONNEXION'] as const;
 const LANGUES = ['FR', 'RO', 'ES'] as const;
 
 /** Modèles de messages (3 contextes × 3 langues). */

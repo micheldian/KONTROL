@@ -1,13 +1,15 @@
 import Link from 'next/link';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
-import { renduTemplate, type LangueCode } from '@/lib/messaging/templates';
+import { lienConnexion, renduTemplate, type LangueCode } from '@/lib/messaging/templates';
+import { configSms } from '@/lib/messaging/channel';
 import ContactGroupe from './contact-groupe';
 
 export const dynamic = 'force-dynamic';
 
 // Contact depuis le vivier — template « on a une mission pour vous » dans la langue
 // du profil, éditable avant envoi, individuel ou groupé, journalisé.
+// Second mode : SMS de connexion (lien pré-langué + téléphone pré-rempli + nouveau PIN).
 export default async function ContactVivierPage({
   searchParams
 }: {
@@ -28,16 +30,31 @@ export default async function ContactVivierPage({
   ]);
 
   const surcharges = (org?.parametres as { templates?: unknown })?.templates;
+  const smsConfigure = !!configSms(org?.parametres);
   const destinataires = profils.map((p) => ({
     id: p.id,
     nom: `${p.prenom} ${p.nom}`,
     telephone: p.telephone,
     langue: p.langue,
+    statut: p.statutProfil,
     telegramConnecte: !!p.telegramChatId,
     message: renduTemplate(
       'VIVIER',
       p.langue as LangueCode,
       { prenom: p.prenom, organisation: org?.nom ?? 'Krontrol' },
+      surcharges
+    ),
+    // {pin} reste en placeholder : le PIN est généré au moment de l'envoi
+    messageConnexion: renduTemplate(
+      'CONNEXION',
+      p.langue as LangueCode,
+      {
+        prenom: p.prenom,
+        organisation: org?.nom ?? 'Krontrol',
+        telephone: p.telephone,
+        lien: lienConnexion(p.langue as LangueCode, p.telephone),
+        pin: '{pin}'
+      },
       surcharges
     )
   }));
@@ -45,7 +62,7 @@ export default async function ContactVivierPage({
   const envois = await prisma.envoiMessage.findMany({
     where: {
       organisationId: user.organisationId,
-      contexte: 'VIVIER',
+      contexte: { in: ['VIVIER', 'CONNEXION'] },
       destinataireUserId: { in: ids }
     },
     include: { destinataire: true },
@@ -60,7 +77,7 @@ export default async function ContactVivierPage({
           Contacter le vivier
           <span className="block text-[13px] font-normal text-muted">
             {destinataires.length} destinataire{destinataires.length > 1 ? 's' : ''} ·
-            message dans la langue du profil, éditable avant envoi
+            message dans la langue du profil, éditable avant envoi · SMS de connexion (lien + PIN)
           </span>
         </h1>
         <Link href="/admin/vivier" className="btn-sm btn-outline">
@@ -68,7 +85,7 @@ export default async function ContactVivierPage({
         </Link>
       </div>
 
-      <ContactGroupe destinataires={destinataires} />
+      <ContactGroupe destinataires={destinataires} smsConfigure={smsConfigure} />
 
       {envois.length > 0 && (
         <>
@@ -82,9 +99,12 @@ export default async function ContactVivierPage({
                 <span className="font-mono text-[12px] text-muted">
                   {e.envoyeAt.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' })}
                 </span>
-                <span>{e.canal === 'TELEGRAM' ? '✈️' : '🟢'}</span>
+                <span>{e.canal === 'TELEGRAM' ? '✈️' : e.canal === 'SMS' ? '📲' : '🟢'}</span>
                 <span className="flex-1 font-semibold">
                   {e.destinataire.prenom} {e.destinataire.nom}
+                  {e.contexte === 'CONNEXION' && (
+                    <span className="ml-1.5 font-normal text-muted">· accès + PIN</span>
+                  )}
                 </span>
                 <span className="badge badge-muted">{e.statut.toLowerCase()}</span>
               </div>

@@ -21,7 +21,8 @@ const CONTEXTES = [
   { key: 'AFFECTATION', titre: 'Affectation (envoi du planning)' },
   { key: 'RECAP', titre: 'Récapitulatif mensuel' },
   { key: 'VIVIER', titre: 'Vivier (« on a une mission pour vous »)' },
-  { key: 'DEMANDE', titre: 'Demande de main-d’œuvre (envoi aux recruteurs)' }
+  { key: 'DEMANDE', titre: 'Demande de main-d’œuvre (envoi aux recruteurs)' },
+  { key: 'CONNEXION', titre: 'SMS de connexion (vivier : lien + PIN — {pin} obligatoire)' }
 ] as const;
 const LANGUES = ['FR', 'RO', 'ES'] as const;
 
@@ -131,6 +132,45 @@ export default async function ParametresPage({
               defaultValue={(params.pennylaneApiKey as string) ?? ''}
               className="input font-mono text-[13px]"
             />
+          </div>
+        </div>
+        <h2 className="pt-2 text-[16px] font-bold">SMS de connexion (Twilio)</h2>
+        <p className="text-[12.5px] text-muted">
+          Utilisé par « Contacter le vivier → SMS de connexion » (lien dans la langue du profil +
+          nouveau PIN). Vide = simulation ; le bouton « depuis mon téléphone » fonctionne sans
+          configuration.
+        </p>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className="label">Account SID</label>
+            <input
+              name="smsTwilioSid"
+              defaultValue={(params.smsTwilioSid as string) ?? ''}
+              className="input font-mono text-[13px]"
+              placeholder="AC…"
+            />
+          </div>
+          <div>
+            <label className="label">Auth token</label>
+            <input
+              name="smsTwilioToken"
+              type="password"
+              autoComplete="off"
+              defaultValue={(params.smsTwilioToken as string) ?? ''}
+              className="input font-mono text-[13px]"
+            />
+          </div>
+          <div>
+            <label className="label">Expéditeur</label>
+            <input
+              name="smsExpediteur"
+              defaultValue={(params.smsExpediteur as string) ?? ''}
+              className="input font-mono text-[13px]"
+              placeholder="+33… ou PICKAJOB"
+            />
+            <p className="mt-1 text-[12px] text-muted">
+              Numéro Twilio (E.164), nom alphanumérique ≤ 11 caractères ou Messaging Service (MG…).
+            </p>
           </div>
         </div>
         <h2 className="pt-2 text-[16px] font-bold">Recruteurs & commissions</h2>
@@ -261,7 +301,7 @@ export default async function ParametresPage({
         <h2 className="text-[16px] font-bold">Modèles de messages (3 langues)</h2>
         <p className="text-[12.5px] text-muted">
           Variables : {'{prenom} {client} {mission} {travaux} {date} {heure} {parcelles} {adresse} {instructions} {mois} {net} {organisation}'}
-          . Vide = modèle par défaut.
+          {' '}— SMS de connexion : {'{lien} {telephone} {pin}'}. Vide = modèle par défaut.
         </p>
         {CONTEXTES.map((c) => (
           <div key={c.key}>

@@ -9,7 +9,9 @@ export async function middleware(req: NextRequest) {
 
   // Lien pré-langué : /rejoindre?lang=ro (ou /recruteur/inscription?lang=ro…)
   // ouvre directement en roumain (cookie posé puis URL nettoyée) — idem es / fr.
-  if (pathname === '/rejoindre' || pathname.startsWith('/recruteur')) {
+  // Idem sur la connexion ouvrier : /?lang=ro&tel=407… (SMS de connexion du vivier),
+  // le paramètre tel est conservé pour pré-remplir le téléphone.
+  if (pathname === '/' || pathname === '/rejoindre' || pathname.startsWith('/recruteur')) {
     const lang = req.nextUrl.searchParams.get('lang');
     if (lang && ['fr', 'ro', 'es'].includes(lang)) {
       const url = req.nextUrl.clone();
