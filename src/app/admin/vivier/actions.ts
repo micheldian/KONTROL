@@ -52,11 +52,29 @@ export async function noterProfil(formData: FormData) {
   revalidatePath(`/admin/vivier/${id}`);
 }
 
-/** Tags de compétences du profil. */
+/**
+ * Saisie libre en hashtags / mots-clés : « #vendange #taille, tomber les bois »
+ * → ['vendange', 'taille', 'tomber les bois'] (minuscules, espaces normalisés, dédoublonné).
+ */
+function parserHashtags(texte: string): string[] {
+  const vus = new Set<string>();
+  for (const brut of texte.split(/[#,;\n]+/)) {
+    const libelle = brut.trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 40);
+    if (libelle) vus.add(libelle);
+  }
+  return Array.from(vus);
+}
+
+/**
+ * Tags de compétences du profil : cases cochées + hashtags libres (créés dans le
+ * référentiel de l'organisation s'ils n'existent pas → réutilisables partout :
+ * filtres du vivier, portail /rejoindre, demandes).
+ */
 export async function majTagsProfil(formData: FormData) {
   const user = await requireAdmin();
   const id = formData.get('id') as string;
   const tagIds = formData.getAll('tagIds').map(String);
+  const nouveaux = parserHashtags((formData.get('nouveaux') as string) || '');
 
   const profil = await prisma.user.findFirst({
     where: { id, organisationId: user.organisationId }
@@ -66,12 +84,22 @@ export async function majTagsProfil(formData: FormData) {
   const tagsValides = await prisma.competenceTag.findMany({
     where: { id: { in: tagIds }, organisationId: user.organisationId }
   });
+  const ids = new Set(tagsValides.map((t) => t.id));
+  for (const libelle of nouveaux) {
+    const tag = await prisma.competenceTag.upsert({
+      where: { organisationId_libelle: { organisationId: user.organisationId, libelle } },
+      update: { actif: true },
+      create: { organisationId: user.organisationId, libelle }
+    });
+    ids.add(tag.id);
+  }
 
   await prisma.userCompetence.deleteMany({ where: { userId: id } });
   await prisma.userCompetence.createMany({
-    data: tagsValides.map((t) => ({ userId: id, tagId: t.id }))
+    data: Array.from(ids).map((tagId) => ({ userId: id, tagId }))
   });
   revalidatePath(`/admin/vivier/${id}`);
+  revalidatePath('/admin/vivier');
 }
 
 export async function majNotesInternes(formData: FormData) {

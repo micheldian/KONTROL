@@ -232,25 +232,42 @@ export default async function ProfilVivierPage({
       <form action={majTagsProfil} className="card mt-4 p-5">
         <input type="hidden" name="id" value={profil.id} />
         <h2 className="mb-2 text-[15px] font-bold">Compétences</h2>
-        <div className="flex flex-wrap gap-2">
-          {tags.map((t) => (
-            <label
-              key={t.id}
-              className={`badge cursor-pointer ${
-                tagsActuels.has(t.id) ? 'badge-ok' : 'badge-muted'
-              }`}
-            >
-              <input
-                type="checkbox"
-                name="tagIds"
-                value={t.id}
-                defaultChecked={tagsActuels.has(t.id)}
-                className="mr-1 accent-brand"
-              />
-              {t.libelle}
-            </label>
-          ))}
-        </div>
+        {tags.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {tags.map((t) => (
+              <label
+                key={t.id}
+                className={`badge cursor-pointer ${
+                  tagsActuels.has(t.id) ? 'badge-ok' : 'badge-muted'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  name="tagIds"
+                  value={t.id}
+                  defaultChecked={tagsActuels.has(t.id)}
+                  className="mr-1 accent-brand"
+                />
+                #{t.libelle}
+              </label>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[13px] text-muted">
+            Aucune compétence dans le référentiel : tapez des hashtags ci-dessous.
+          </p>
+        )}
+        <label className="label mt-3">Ajouter en hashtags ou mots-clés</label>
+        <input
+          name="nouveaux"
+          className="input text-[13.5px]"
+          placeholder="#vendange #taille #tomber les bois #désherbage"
+          autoComplete="off"
+        />
+        <p className="mt-1 text-[12px] text-muted">
+          Séparez par # ou par virgule. Une compétence nouvelle rejoint le référentiel et devient
+          disponible pour les filtres du vivier et le formulaire candidat.
+        </p>
         <button className="btn-sm btn-green mt-3">Enregistrer les compétences</button>
       </form>
 
