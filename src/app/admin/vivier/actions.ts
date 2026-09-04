@@ -13,6 +13,7 @@ import {
   SmsChannel,
   TelegramChannel,
   WhatsAppLinkChannel,
+  assurerEnumsSms,
   configSms,
   envoyerEtJournaliser,
   lienSms,
@@ -378,6 +379,7 @@ export async function envoyerSmsConnexion(input: unknown): Promise<ResultatSmsCo
   try {
     const user = await requireAdmin();
     const parsed = smsConnexionSchema.parse(input);
+    await assurerEnumsSms();
     if (!/\{pin\}/.test(parsed.contenu)) {
       return { ok: false, erreur: 'Le message doit contenir {pin}' };
     }

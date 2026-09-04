@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { lienConnexion, renduTemplate, type LangueCode } from '@/lib/messaging/templates';
-import { configSms } from '@/lib/messaging/channel';
+import { assurerEnumsSms, configSms } from '@/lib/messaging/channel';
 import ContactGroupe from './contact-groupe';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +17,7 @@ export default async function ContactVivierPage({
 }) {
   const user = await requireAdmin();
   const ids = (searchParams.ids ?? '').split(',').filter(Boolean).slice(0, 100);
+  await assurerEnumsSms(); // enum CONNEXION requis par la requête du journal ci-dessous
 
   const [profils, org] = await Promise.all([
     prisma.user.findMany({

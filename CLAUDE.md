@@ -172,7 +172,8 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       Paramètres ou `TWILIO_*`, vides → SIMULE) ou repli « depuis mon téléphone » (lien
       `sms:` pré-rempli, statut LIEN_GENERE). Template `CONNEXION` FR/RO/ES éditable
       (`{pin}` obligatoire), PIN masqué dans le journal `EnvoiMessage`
-      (contexte `CONNEXION`). Bases existantes : exécuter `prisma/migration-sms.sql`.
+      (contexte `CONNEXION`). Enums ajoutés automatiquement au premier usage (`assurerEnumsSms`,
+      idempotent) — `prisma/migration-sms.sql` reste disponible pour une application manuelle.
 
 ## Lancer le projet en local
 
