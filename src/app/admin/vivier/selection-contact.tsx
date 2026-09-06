@@ -2,11 +2,15 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
+import { Avatar } from '@/components/PhotoOuvrier';
 import { reactiverProfilDepuisListe, remettreAuVivierDepuisListe } from './actions';
 
 type Profil = {
   id: string;
   nom: string;
+  prenom: string;
+  nomFamille: string;
+  photoVersion: number | null;
   telephone: string;
   langue: string;
   statut: string;
@@ -171,7 +175,17 @@ export default function SelectionContact({
                     />
                   )}
                 </td>
-                <td className="font-semibold">{p.nom}</td>
+                <td className="font-semibold">
+                  <span className="flex items-center gap-2">
+                    <Avatar
+                      userId={p.id}
+                      version={p.photoVersion}
+                      prenom={p.prenom}
+                      nom={p.nomFamille}
+                    />
+                    {p.nom}
+                  </span>
+                </td>
                 <td className="font-mono text-[12.5px]">{p.telephone}</td>
                 <td>{p.langue}</td>
                 <td>

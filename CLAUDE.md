@@ -175,6 +175,18 @@ Organisation pilote : Pickajob. Multi-tenant : **toute** requête est scopée pa
       (contexte `CONNEXION`). Enums ajoutés automatiquement au premier usage (`assurerEnumsSms`,
       idempotent) — `prisma/migration-sms.sql` reste disponible pour une application manuelle.
 
+- [x] **Photo de l'ouvrier** : bloc photo sur les fiches vivier et ouvrier (bouton « Prendre
+      une photo », `capture="user"` → appareil photo du téléphone, réduction à 640 px JPEG
+      dans le navigateur), vignettes rondes (photo ou initiales) dans les listes vivier et
+      ouvriers. Table `PhotoOuvrier` (octets en base, jamais chargés par les listes),
+      servie par `/api/ouvriers/[id]/photo` (ADMIN/MANAGER, même organisation), actions
+      tracées (`ouvrier.photo`). Composant `components/PhotoOuvrier.tsx` (+ `Avatar`).
+- [x] **Migrations auto** : `src/lib/migrations-auto.ts` (instructions idempotentes :
+      enums SMS/CONNEXION, table PhotoOuvrier) exécuté au démarrage de chaque instance via
+      `src/instrumentation.ts` (`experimental.instrumentationHook`) et avant le premier
+      usage des fonctionnalités concernées. Les `prisma/migration-*.sql` restent la
+      référence manuelle.
+
 ## Lancer le projet en local
 
 ```bash

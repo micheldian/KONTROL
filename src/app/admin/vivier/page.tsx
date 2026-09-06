@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
+import { assurerMigrations } from '@/lib/migrations-auto';
 import SelectionContact from './selection-contact';
 import ErreurBanniere from '@/components/admin/ErreurBanniere';
 
@@ -87,6 +88,16 @@ export default async function VivierPage({
     },
     take: 500
   });
+
+  await assurerMigrations();
+  const photos = new Map(
+    (
+      await prisma.photoOuvrier.findMany({
+        where: { userId: { in: profils.map((p) => p.id) } },
+        select: { userId: true, majAt: true }
+      })
+    ).map((p) => [p.userId, p.majAt.getTime()])
+  );
 
   const lignes = profils
     .map((p) => ({
@@ -233,6 +244,9 @@ export default async function VivierPage({
         profils={lignes.map((p) => ({
           id: p.id,
           nom: `${p.prenom} ${p.nom}`,
+          prenom: p.prenom,
+          nomFamille: p.nom,
+          photoVersion: photos.get(p.id) ?? null,
           telephone: p.telephone,
           langue: p.langue,
           statut: p.statutProfil,

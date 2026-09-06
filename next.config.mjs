@@ -7,6 +7,8 @@ const nextConfig = {
   // Stack traces lisibles en production (diagnostic navigateur)
   productionBrowserSourceMaps: true,
   experimental: {
+    // src/instrumentation.ts : migrations idempotentes au démarrage de l'instance
+    instrumentationHook: true,
     // Embarque les polices du PDF dans la fonction serverless (Vercel)
     outputFileTracingIncludes: {
       '/api/clotures/[id]/pdf': ['./public/fonts/**'],

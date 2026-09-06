@@ -231,6 +231,7 @@ model User {
   paiementsCommission PaiementCommission[]
   dossiersEmbauche    DossierEmbauche[]     @relation("DossiersEmbauche")
   documents           DocumentOuvrier[]     @relation("DocumentsOuvrier")
+  photo               PhotoOuvrier?
   signatures          SignatureElec[]       @relation("Signatures")
 
   @@index([organisationId, statutProfil])
@@ -799,6 +800,21 @@ model ChecklistItem {
   faitParId String?
 
   @@unique([dossierId, type])
+}
+
+// Photo de l'ouvrier (trombinoscope back-office) : JPEG réduit côté client (≤ 640 px),
+// accès ADMIN/MANAGER via /api/ouvriers/[id]/photo. Table séparée : les listes d'ouvriers
+// ne chargent jamais les octets.
+model PhotoOuvrier {
+  id             String   @id @default(cuid())
+  organisationId String
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mimeType       String
+  taille         Int
+  contenu        Bytes
+  majAt          DateTime @default(now())
+  majParId       String?
 }
 
 model DocumentOuvrier {

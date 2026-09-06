@@ -6,6 +6,8 @@ import OuvrierForm from '../ouvrier-form';
 import { debloquerPin } from '../actions';
 import { creerSejour, cloreSejour } from '../../logements/actions';
 import ErreurBanniere from '@/components/admin/ErreurBanniere';
+import PhotoOuvrier from '@/components/PhotoOuvrier';
+import { assurerMigrations } from '@/lib/migrations-auto';
 import { recapMois } from '@/lib/money';
 import { historiqueProfil } from '@/lib/historique';
 import { LIBELLES_DOCUMENT } from '@/lib/documents';
@@ -115,17 +117,31 @@ export default async function OuvrierPage({
 
   const joursPresence = sejourActuel ? diffJours(ymd(sejourActuel.dateArrivee), today) + 1 : 0;
 
+  await assurerMigrations();
+  const photo = await prisma.photoOuvrier.findUnique({
+    where: { userId: ouvrier.id },
+    select: { majAt: true }
+  });
+
   return (
     <div className="max-w-[860px]">
-      <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-[21px] font-bold">
-          {ouvrier.prenom} {ouvrier.nom}
-          <span className="block text-[13px] font-normal text-muted">
-            {ouvrier.telephone} · {ouvrier.langue} ·{' '}
-            {ouvrier.estChefEquipe ? 'Chef d’équipe' : 'Ouvrier'} · {ouvrier.statutProfil}
-            {historique.derniereSaison ? ` · dernière saison ${historique.derniereSaison}` : ''}
-          </span>
-        </h1>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-4">
+          <PhotoOuvrier
+            userId={ouvrier.id}
+            prenom={ouvrier.prenom}
+            nom={ouvrier.nom}
+            version={photo?.majAt.getTime() ?? null}
+          />
+          <h1 className="text-[21px] font-bold">
+            {ouvrier.prenom} {ouvrier.nom}
+            <span className="block text-[13px] font-normal text-muted">
+              {ouvrier.telephone} · {ouvrier.langue} ·{' '}
+              {ouvrier.estChefEquipe ? 'Chef d’équipe' : 'Ouvrier'} · {ouvrier.statutProfil}
+              {historique.derniereSaison ? ` · dernière saison ${historique.derniereSaison}` : ''}
+            </span>
+          </h1>
+        </div>
         <div className="flex gap-2">
           <Link href={`/admin/vivier/${ouvrier.id}`} className="btn-sm btn-outline">
             Profil vivier

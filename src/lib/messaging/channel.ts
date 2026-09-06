@@ -7,6 +7,7 @@
 //   Identifiants vides → mode SIMULATION ; repli « sms: » ouvert depuis le téléphone de l'admin.
 
 import { prisma } from '@/lib/prisma';
+import { assurerMigrations } from '@/lib/migrations-auto';
 import type { CanalMessage, ContexteMessage, StatutEnvoi } from '@prisma/client';
 
 export type ResultatEnvoi = {
@@ -89,26 +90,9 @@ export function lienSms(telephone: string, contenu: string): string {
   return `sms:${telephone.replace(/[^\d+]/g, '')}?&body=${encodeURIComponent(contenu)}`;
 }
 
-/**
- * Migration auto-appliquée (idempotente) : valeurs d'enum SMS / CONNEXION. Équivalent de
- * prisma/migration-sms.sql, exécuté une fois par instance avant le premier usage — la base
- * de production n'est pas migrée à la main au déploiement. `ADD VALUE IF NOT EXISTS` ne
- * peut pas tourner dans une transaction : appels $executeRawUnsafe séparés, hors $transaction.
- */
-let enumsSmsPrets: Promise<void> | null = null;
+/** Enums SMS / CONNEXION : délégué aux migrations auto (lib/migrations-auto.ts). */
 export function assurerEnumsSms(): Promise<void> {
-  if (!enumsSmsPrets) {
-    enumsSmsPrets = (async () => {
-      await prisma.$executeRawUnsafe(`ALTER TYPE "CanalMessage" ADD VALUE IF NOT EXISTS 'SMS'`);
-      await prisma.$executeRawUnsafe(
-        `ALTER TYPE "ContexteMessage" ADD VALUE IF NOT EXISTS 'CONNEXION'`
-      );
-    })().catch((e) => {
-      enumsSmsPrets = null; // nouvel essai au prochain appel
-      throw e;
-    });
-  }
-  return enumsSmsPrets;
+  return assurerMigrations();
 }
 
 export type ConfigSms = { accountSid: string; authToken: string; from: string };

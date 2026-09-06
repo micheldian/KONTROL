@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import ErreurBanniere from '@/components/admin/ErreurBanniere';
+import PhotoOuvrier from '@/components/PhotoOuvrier';
+import { assurerMigrations } from '@/lib/migrations-auto';
 import { notFound } from 'next/navigation';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
@@ -41,7 +43,11 @@ export default async function ProfilVivierPage({
   ]);
   if (!profil) notFound();
 
-  const historique = await historiqueProfil(user.organisationId, profil.id);
+  await assurerMigrations();
+  const [historique, photo] = await Promise.all([
+    historiqueProfil(user.organisationId, profil.id),
+    prisma.photoOuvrier.findUnique({ where: { userId: profil.id }, select: { majAt: true } })
+  ]);
   const auteurListeNoire = profil.listeNoireParId
     ? await prisma.user.findUnique({ where: { id: profil.listeNoireParId } })
     : null;
@@ -72,15 +78,23 @@ export default async function ProfilVivierPage({
       <ErreurBanniere erreur={searchParams.erreur} />
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-[21px] font-bold">
-          {profil.prenom} {profil.nom}
-          <span className="block text-[13px] font-normal text-muted">
-            {profil.telephone} · {profil.langue} · statut {profil.statutProfil} · source{' '}
-            {profil.source.toLowerCase()}
-            {profil.permisB && <span className="badge badge-ok ml-2">🚗 permis B</span>}
-            {profil.vehicule && <span className="badge badge-ok ml-1">🚙 véhiculé</span>}
-          </span>
-        </h1>
+        <div className="flex items-center gap-4">
+          <PhotoOuvrier
+            userId={profil.id}
+            prenom={profil.prenom}
+            nom={profil.nom}
+            version={photo?.majAt.getTime() ?? null}
+          />
+          <h1 className="text-[21px] font-bold">
+            {profil.prenom} {profil.nom}
+            <span className="block text-[13px] font-normal text-muted">
+              {profil.telephone} · {profil.langue} · statut {profil.statutProfil} · source{' '}
+              {profil.source.toLowerCase()}
+              {profil.permisB && <span className="badge badge-ok ml-2">🚗 permis B</span>}
+              {profil.vehicule && <span className="badge badge-ok ml-1">🚙 véhiculé</span>}
+            </span>
+          </h1>
+        </div>
         <div className="flex gap-2">
           {(profil.statutProfil === 'VIVIER' || profil.statutProfil === 'INACTIF') && (
             <Link

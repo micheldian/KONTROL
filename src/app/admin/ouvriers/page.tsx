@@ -3,6 +3,8 @@ import ErreurBanniere from '@/components/admin/ErreurBanniere';
 import { remettreAuVivier } from '../vivier/actions';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
+import { Avatar } from '@/components/PhotoOuvrier';
+import { assurerMigrations } from '@/lib/migrations-auto';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +38,15 @@ export default async function OuvriersPage({
     },
     orderBy: [{ nom: 'asc' }, { prenom: 'asc' }]
   });
+  await assurerMigrations();
+  const photos = new Map(
+    (
+      await prisma.photoOuvrier.findMany({
+        where: { userId: { in: ouvriers.map((o) => o.id) } },
+        select: { userId: true, majAt: true }
+      })
+    ).map((p) => [p.userId, p.majAt.getTime()])
+  );
 
   const org = await prisma.organisation.findUnique({
     where: { id: user.organisationId }
@@ -101,7 +112,15 @@ export default async function OuvriersPage({
             {ouvriers.map((o) => (
               <tr key={o.id}>
                 <td className="font-semibold">
-                  {o.prenom} {o.nom}
+                  <span className="flex items-center gap-2">
+                    <Avatar
+                      userId={o.id}
+                      version={photos.get(o.id) ?? null}
+                      prenom={o.prenom}
+                      nom={o.nom}
+                    />
+                    {o.prenom} {o.nom}
+                  </span>
                 </td>
                 <td className="font-mono text-[13px]">{o.telephone}</td>
                 <td>{o.langue}</td>
