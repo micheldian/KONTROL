@@ -16,13 +16,18 @@ export const dynamic = 'force-dynamic';
 export default async function CandidaturesPage({
   searchParams
 }: {
-  searchParams: { erreur?: string; q?: string };
+  searchParams: { erreur?: string; q?: string; tri?: string };
 }) {
   const user = await requireAdmin();
 
   // Recherche : nom, téléphone OU mot-clé libre dans l'expérience déclarée
   // (ex. « pomme de terre » → tous ceux qui l'ont écrit dans leur candidature)
   const q = searchParams.q?.trim() ?? '';
+  // Tri : plus récentes d'abord par défaut (leads les plus frais), « ancien » pour l'inverse
+  const plusAnciennes = searchParams.tri === 'ancien';
+  const ordre = plusAnciennes ? ('asc' as const) : ('desc' as const);
+  const lienTri = (tri: 'recent' | 'ancien') =>
+    `/admin/candidatures?${new URLSearchParams({ ...(q ? { q } : {}), tri }).toString()}`;
   const filtreProfil = q
     ? {
         OR: [
@@ -46,7 +51,7 @@ export default async function CandidaturesPage({
       recruteur: { select: { prenom: true, nom: true, societe: true } },
       demande: { select: { titre: true } }
     },
-    orderBy: { creeAt: 'asc' }
+    orderBy: { creeAt: ordre }
   });
 
   const candidatures = await prisma.candidature.findMany({
@@ -58,7 +63,7 @@ export default async function CandidaturesPage({
     include: {
       user: { include: { competences: { include: { tag: true } } } }
     },
-    orderBy: { creeAt: 'asc' }
+    orderBy: { creeAt: ordre }
   });
 
   const traitees = await prisma.candidature.findMany({
@@ -92,12 +97,33 @@ export default async function CandidaturesPage({
           className="input w-[280px] py-2"
           placeholder="Nom, téléphone ou mot-clé (ex. pomme de terre)"
         />
+        <input type="hidden" name="tri" value={plusAnciennes ? 'ancien' : 'recent'} />
         <button className="btn-sm btn-ink">🔍 Rechercher</button>
         {q && (
-          <a href="/admin/candidatures" className="btn-sm btn-outline">
+          <a
+            href={`/admin/candidatures?tri=${plusAnciennes ? 'ancien' : 'recent'}`}
+            className="btn-sm btn-outline"
+          >
             ✕ Effacer
           </a>
         )}
+        <span className="ml-auto flex items-center gap-1 text-[12.5px] text-muted">
+          Tri :
+          <a
+            href={lienTri('recent')}
+            className={`btn-sm ${plusAnciennes ? 'btn-outline' : 'btn-ink'}`}
+            aria-current={!plusAnciennes ? 'true' : undefined}
+          >
+            ⬇ Plus récentes
+          </a>
+          <a
+            href={lienTri('ancien')}
+            className={`btn-sm ${plusAnciennes ? 'btn-ink' : 'btn-outline'}`}
+            aria-current={plusAnciennes ? 'true' : undefined}
+          >
+            ⬆ Plus anciennes
+          </a>
+        </span>
         <span className="text-[12px] text-muted">
           Le mot-clé est cherché dans le texte d’expérience écrit par le candidat.
         </span>
